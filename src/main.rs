@@ -122,8 +122,8 @@ fn main() -> std::io::Result<()> {
 	0 => {},
 	DATA_LEN => {
 	    let bytes = args.set.as_bytes();
-	    for i in 0..DATA_LEN {
-		let v = bytes[i] - 'a' as u8;
+	    for (i, byte) in bytes.iter().enumerate().take(DATA_LEN) {
+		let v = byte - b'a';
 		cube.data[i] = v;
 	    }
 	},
@@ -148,17 +148,17 @@ fn main() -> std::io::Result<()> {
 	for turn in turns {
 	    write!(out.as_mut(), "{} ", turn)?;
 	}
-	write!(out.as_mut(), "\n")?;
+	writeln!(out.as_mut())?;
 	std::process::exit(0);
     }
 
     // Print the resulting cube (either as a string or with colors)
     if args.char_print {
 	for s in cube.data {
-	    let c = ('a' as u8 + s) as char;
+	    let c = (b'a' + s) as char;
 	    write!(out.as_mut(), "{}", c)?;
 	}
-	write!(out.as_mut(), "\n")?;
+	writeln!(out.as_mut())?;
     } else {
 	cube.print();
     }

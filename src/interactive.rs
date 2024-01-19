@@ -36,27 +36,27 @@ fn draw_cube(win: &Window, cube: &ArrayCube) {
 
     { // Up
 	let slice = &cube.data[0..9];
-	draw_side(&win, offy, offx+SIDE_WIDTH, slice);
+	draw_side(win, offy, offx+SIDE_WIDTH, slice);
     }
     { // Down
 	let slice = &cube.data[9..18];
-	draw_side(&win, offy+2*SIDE_HEIGHT, offx+SIDE_WIDTH, slice);
+	draw_side(win, offy+2*SIDE_HEIGHT, offx+SIDE_WIDTH, slice);
     }
     { // Back
 	let slice = &cube.data[18..27];
-	draw_side(&win, offy+SIDE_HEIGHT, offx+3*SIDE_WIDTH, slice);
+	draw_side(win, offy+SIDE_HEIGHT, offx+3*SIDE_WIDTH, slice);
     }
     { // Front
 	let slice = &cube.data[27..36];
-	draw_side(&win, offy+SIDE_HEIGHT, offx+SIDE_WIDTH, slice);
+	draw_side(win, offy+SIDE_HEIGHT, offx+SIDE_WIDTH, slice);
     }
     { // Left
 	let slice = &cube.data[36..45];
-	draw_side(&win, offy+SIDE_HEIGHT, offx, slice);
+	draw_side(win, offy+SIDE_HEIGHT, offx, slice);
     }
     { // Right
 	let slice = &cube.data[45..54];
-	draw_side(&win, offy+SIDE_HEIGHT, offx+2*SIDE_WIDTH, slice);
+	draw_side(win, offy+SIDE_HEIGHT, offx+2*SIDE_WIDTH, slice);
     }
 }
 
@@ -149,7 +149,7 @@ pub fn interactive_mode(cube: &mut ArrayCube) {
 	    continue;
 	}
 
-	idx = idx % 54;
+	idx %= 54;
 
 	init_pair(1, 15, COLOR_BLACK);
 	init_pair(2, 11, COLOR_BLACK);
@@ -159,7 +159,7 @@ pub fn interactive_mode(cube: &mut ArrayCube) {
 	init_pair(6, 3, COLOR_BLACK);
 
 	win.clear();
-	draw_cube(&win, &cube);
+	draw_cube(&win, cube);
 
 	let offy = 2;
 	let offx = offy*2;
@@ -168,8 +168,8 @@ pub fn interactive_mode(cube: &mut ArrayCube) {
 	    UP => (0,SIDE_WIDTH),
 	    DOWN => (SIDE_HEIGHT*2,SIDE_WIDTH),
 	    BACK => (SIDE_HEIGHT,SIDE_WIDTH*3),
-	    FRONT => (SIDE_HEIGHT,SIDE_WIDTH*1),
-	    LEFT => (SIDE_HEIGHT,SIDE_WIDTH*0),
+	    FRONT => (SIDE_HEIGHT,SIDE_WIDTH),
+	    LEFT => (SIDE_HEIGHT,0),
 	    RIGHT => (SIDE_HEIGHT,SIDE_WIDTH*2),
 	    _ => (0,0),
 	};

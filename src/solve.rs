@@ -76,7 +76,7 @@ fn bfs_solve(initial: &mut ArrayCube, turns: &TurnSet, hash_fn: fn(&ArrayCube) -
 		let hash = hash_fn(&cube);
 
 		if let Some(t) = vis.get(&hash) {
-		    let mut turn = t.clone();
+		    let mut turn = *t;
 		    out.push(turn);
 		    turn.invert();
 		    cube.apply_turn(turn);

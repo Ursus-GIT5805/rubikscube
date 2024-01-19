@@ -170,7 +170,7 @@ impl RubiksCube for ArrayCube {
 	let transform = TRANSFORM[ turn.side as usize ][ turn.wise as usize ];
 
 	// Apply the matrix to the current state of cube
-	let bef = self.data.clone();
+	let bef = self.data;
 	for i in 0..(N*N*NUM_SIDES) {
 	    self.data[i] = bef[ transform[i] as usize ];
 	}
@@ -186,7 +186,7 @@ impl ArrayCube {
 	    for i in 0..N {
 		print!("{}▀ ", get_color(self.data[ (UP as usize)*(N*N) + i+j*N ]));
 	    }
-	    print!("\n");
+	    println!();
 	}
 
 	// Print Left, Front, Right, Back
@@ -198,9 +198,9 @@ impl ArrayCube {
 		}
 		print!(" ");
 	    }
-	    print!("\n");
+	    println!();
 	}
-	print!("\n");
+	println!();
 
 	// Print Down-side
 	for j in 0..N {
@@ -208,7 +208,7 @@ impl ArrayCube {
 	    for i in 0..N {
 		print!("{}▀ ", get_color(self.data[ (DOWN as usize)*(N*N) + i+j*N ]));
 	    }
-	    print!("\n");
+	    println!();
 	}
 	print!("\x1b[00m");
     }

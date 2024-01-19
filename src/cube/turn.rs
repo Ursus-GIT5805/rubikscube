@@ -85,7 +85,7 @@ impl std::fmt::Display for Turn {
 
 impl From<&str> for Turn {
     fn from(item: &str) -> Self {
-	if item.len() == 0 || 2 < item.len() {
+	if item.is_empty() || 2 < item.len() {
 	    panic!("Turn string has invalid size: \"{}\"", item);
 	}
 	let bytes = item.as_bytes();

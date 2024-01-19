@@ -82,9 +82,9 @@ impl Edge {
 /// A corner piece
 /// Note that the name is carefully sorted!
 #[derive(Clone, Copy)]
-#[derive(PartialEq, Eq)]
+#[derive(PartialEq, Eq, Debug)]
 #[derive(strum::EnumIter)]
-#[derive(Debug)]
+#[allow(clippy::upper_case_acronyms)]
 #[repr(usize)]
 pub enum Corner {
     URF, UBR, DLF, DFR, // DON'T CHANGE THE ORDER OF THE LETTERS!
