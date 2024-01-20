@@ -12,7 +12,7 @@ use cube::{
     arraycube::ArrayCube,
 };
 
-// Using clap for parsing arguments. For more infos, see official docs.
+// Using clap for parsing arguments. For more infos about clap, see official docs.
 /// Rubiks cube solver written in Rust
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -42,7 +42,7 @@ struct Args {
     random: bool,
 
     /// Prints the output to a file rather to the stdout
-    /// You should write to a temporary file to read the output in the interactive mode.
+    /// If you want to read the output of the interactive mode, you should use this.
     #[arg(short, long, default_value_t = String::new())]
     output: String,
 }

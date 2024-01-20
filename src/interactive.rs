@@ -9,6 +9,7 @@ use crate::cube::{
 const SIDE_WIDTH: i32 = 3*6;
 const SIDE_HEIGHT: i32 = 3*3;
 
+/// Draw one side of a cube
 fn draw_side(win: &Window, y: i32, x: i32, slice: &[u8]) {
     win.mv(y,x);
 
@@ -30,6 +31,7 @@ fn draw_side(win: &Window, y: i32, x: i32, slice: &[u8]) {
     }
 }
 
+/// Draw the cube
 fn draw_cube(win: &Window, cube: &ArrayCube) {
     let offy = 2;
     let offx = offy*2;
@@ -60,6 +62,64 @@ fn draw_cube(win: &Window, cube: &ArrayCube) {
     }
 }
 
+/// Draw the entire screen
+fn render(idx: usize, cube: &ArrayCube, win: &Window) {
+    init_pair(1, 15, COLOR_BLACK); // white
+    init_pair(2, 11, COLOR_BLACK); // yellow
+    init_pair(3, COLOR_GREEN, COLOR_BLACK); // green
+    init_pair(4, COLOR_BLUE, COLOR_BLACK); // blue
+    init_pair(5, COLOR_RED, COLOR_BLACK); // red
+    init_pair(6, 3, COLOR_BLACK); //orange
+
+    win.clear();
+    draw_cube(win, cube);
+
+    let offy = 2;
+    let offx = offy*2;
+
+    let (mut y, mut x) = match (idx / 9) as u8 {
+	UP => (0,SIDE_WIDTH),
+	DOWN => (SIDE_HEIGHT*2,SIDE_WIDTH),
+	BACK => (SIDE_HEIGHT,SIDE_WIDTH*3),
+	FRONT => (SIDE_HEIGHT,SIDE_WIDTH),
+	LEFT => (SIDE_HEIGHT,0),
+	RIGHT => (SIDE_HEIGHT,SIDE_WIDTH*2),
+	_ => (0,0),
+    };
+    x += offx + 6 * (idx as i32 % 3);
+    y += offy + 3 * ((idx as i32 / 3) % 3);
+
+    win.mv(y, x-1);
+    win.printw("│");
+    win.mv(y+1, x-1);
+    win.printw("│");
+
+    win.mv(y, x+3);
+    win.printw("│");
+    win.mv(y+1, x+3);
+    win.printw("│");
+
+    win.mv(SIDE_HEIGHT*3+3, 0);
+    win.printw("Press any of these keys to use the move (shift+)(U,D,B,F,L,R)\n");
+    win.printw("Move cursor with (i,j,k,l)\n");
+    win.printw("Set the color with (w,y|g,b|o,r)\n");
+    win.printw("Clear the cube with (shift+)C\n\n");
+    // win.printw(format!("Index {}\n\n", idx));
+
+    if cube.is_solvable() {
+	win.attron( COLOR_PAIR(3) );
+	win.printw("This cube is solvable.\n");
+    } else {
+	win.attron( COLOR_PAIR(5) );
+	win.printw("This cube is UNSOLBABLE!!!\n");
+    }
+    win.attron( COLOR_PAIR(1) );
+
+    win.printw("Press (shift+)Q to quit.");
+
+    win.refresh();
+}
+
 /// Handle the interactive mode
 pub fn interactive_mode(cube: &mut ArrayCube) {
     /*
@@ -76,6 +136,8 @@ pub fn interactive_mode(cube: &mut ArrayCube) {
 
     win.printw("Press any button.");
     win.refresh();
+
+    render(idx, cube, &win);
 
     loop {
 	if let Some(key) = win.getch() {
@@ -133,14 +195,28 @@ pub fn interactive_mode(cube: &mut ArrayCube) {
 		    },
 
 
-		    'w' => cube.data[idx] = UP,
-		    'y' => cube.data[idx] = DOWN,
-		    'g' => cube.data[idx] = BACK,
-		    'b' => cube.data[idx] = FRONT,
-		    'r' => cube.data[idx] = LEFT,
-		    'o' => cube.data[idx] = RIGHT,
+		    'w' | 'y' | 'g' | 'b' | 'r' | 'o' => {
+			let side = match c {
+			    'w' => UP,
+			    'y' => DOWN,
+			    'g' => BACK,
+			    'b' => FRONT,
+			    'r' => LEFT,
+			    'o' => RIGHT,
+			    _ => panic!("Undefined behaviour"),
+			};
 
-		    'Q' => break,
+			// Check wheter it isn't the middle piece (the middle piece mustn't be changed!)
+			if idx % 9 != 4 {
+			    cube.data[idx] = side;
+			}
+		    },
+		    'C' => {
+			*cube = ArrayCube::default();
+		    },
+		    'Q' => if cube.is_solvable() {
+			break
+		    },
 		    _ => {},
 		},
 		_ => continue,
@@ -151,56 +227,7 @@ pub fn interactive_mode(cube: &mut ArrayCube) {
 
 	idx %= 54;
 
-	init_pair(1, 15, COLOR_BLACK);
-	init_pair(2, 11, COLOR_BLACK);
-	init_pair(3, COLOR_GREEN, COLOR_BLACK);
-	init_pair(4, COLOR_BLUE, COLOR_BLACK);
-	init_pair(5, COLOR_RED, COLOR_BLACK);
-	init_pair(6, 3, COLOR_BLACK);
-
-	win.clear();
-	draw_cube(&win, cube);
-
-	let offy = 2;
-	let offx = offy*2;
-
-	let (mut y, mut x) = match (idx / 9) as u8 {
-	    UP => (0,SIDE_WIDTH),
-	    DOWN => (SIDE_HEIGHT*2,SIDE_WIDTH),
-	    BACK => (SIDE_HEIGHT,SIDE_WIDTH*3),
-	    FRONT => (SIDE_HEIGHT,SIDE_WIDTH),
-	    LEFT => (SIDE_HEIGHT,0),
-	    RIGHT => (SIDE_HEIGHT,SIDE_WIDTH*2),
-	    _ => (0,0),
-	};
-	x += offx + 6 * (idx as i32 % 3);
-	y += offy + 3 * ((idx as i32 / 3) % 3);
-
-	win.mv(y, x-1);
-	win.printw("│");
-	win.mv(y+1, x-1);
-	win.printw("│");
-
-	win.mv(y, x+3);
-	win.printw("│");
-	win.mv(y+1, x+3);
-	win.printw("│");
-
-	win.mv(SIDE_HEIGHT*3+3, 0);
-	win.printw("Press any of these keys to use the move (shift+)(U,D,B,F,L,R)\n");
-	win.printw("Move cursor with (i,j,k,l)\n");
-	win.printw("Set the color with (w,y|g,b|o,r)\n\n");
-	win.printw(format!("Index {}\n", idx));
-
-	if cube.is_solvable() {
-	    win.printw("This cube is solvable.\n");
-	} else {
-	    win.printw("This cube is UNSOLBABLE!!!\n");
-	}
-
-	win.printw("Press (shift+)Q to quit.");
-
-	win.refresh();
+	render(idx, cube, &win);
     }
 
     endwin();
