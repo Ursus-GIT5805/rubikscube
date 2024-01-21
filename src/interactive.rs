@@ -64,12 +64,20 @@ fn draw_cube(win: &Window, cube: &ArrayCube) {
 
 /// Draw the entire screen
 fn render(idx: usize, cube: &ArrayCube, win: &Window) {
-    init_pair(1, 15, COLOR_BLACK); // white
-    init_pair(2, 11, COLOR_BLACK); // yellow
+    // Set better colors
+    init_color(COLOR_WHITE, 1000, 1000, 1000);
+    init_color(COLOR_YELLOW, 1000, 1000, 0);
+    init_color(COLOR_GREEN, 0, 900, 0);
+    init_color(COLOR_RED, 1000, 0, 0);
+    init_color(COLOR_MAGENTA, 900, 450, 0);
+
+    // Init color pairs
+    init_pair(1, COLOR_WHITE, COLOR_BLACK); // white
+    init_pair(2, COLOR_YELLOW, COLOR_BLACK); // yellow
     init_pair(3, COLOR_GREEN, COLOR_BLACK); // green
     init_pair(4, COLOR_BLUE, COLOR_BLACK); // blue
     init_pair(5, COLOR_RED, COLOR_BLACK); // red
-    init_pair(6, 3, COLOR_BLACK); //orange
+    init_pair(6, COLOR_MAGENTA, COLOR_BLACK); //orange
 
     win.clear();
     draw_cube(win, cube);
@@ -115,7 +123,7 @@ fn render(idx: usize, cube: &ArrayCube, win: &Window) {
     }
     win.attron( COLOR_PAIR(1) );
 
-    win.printw("Press (shift+)Q to quit.");
+    win.printw("Press (shift+)Q to quit, if the cube is solvable.");
 
     win.refresh();
 }

@@ -266,7 +266,6 @@ pub fn solve(cube: ArrayCube) -> std::vec::Vec<Turn> {
 	let goal = hash_fn(&solved);
 
 	// Do the BFS
-	// TODO in future, change it to the IDA* algorithm
 	let turns = bfs_solve(&mut solve, &allowed_moves, hash_fn, goal);
 
 	// Push the turns to the output sequence
@@ -274,6 +273,7 @@ pub fn solve(cube: ArrayCube) -> std::vec::Vec<Turn> {
 	    seq.push(turn);
 	}
 
+	// Disallow certain turns
 	end_phase(phase, &mut allowed_moves);
     }
 
