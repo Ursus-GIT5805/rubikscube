@@ -9,13 +9,13 @@ use strum::*;
 /// Simple helper struct to have keep track of the legal moves
 #[derive(Default)]
 struct TurnSet {
-    set: [bool; NUM_TURNSIDES*NUM_TURN_WISES]
+    set: [bool; NUM_TURNTYPES*NUM_TURN_WISES]
 }
 
 impl TurnSet {
     /// Create a full set with all possible turns in the set.
     pub fn new() -> Self {
-		let set = [true; NUM_TURNSIDES*NUM_TURN_WISES];
+		let set = [true; NUM_TURNTYPES*NUM_TURN_WISES];
 		Self { set }
     }
 
@@ -50,7 +50,7 @@ impl TurnSet {
 fn bfs_solve(initial: &mut ArrayCube, turns: &TurnSet, hash_fn: fn(&ArrayCube) -> u64, goal: u64) -> std::vec::Vec<Turn> {
     let mut queue = VecDeque::<(ArrayCube, Turn)>::new();
     let mut vis = HashMap::<u64,Turn>::new();
-    queue.push_front((initial.clone(), Turn { side: TurnSide::Up, wise: TurnWise::Clockwise }));
+    queue.push_front((initial.clone(), Turn { side: Turntype::U, wise: TurnWise::Clockwise }));
 
     const MAX_ITERATION: usize = 1_500_000;
     let mut iteration: usize = 0;
@@ -91,7 +91,7 @@ fn bfs_solve(initial: &mut ArrayCube, turns: &TurnSet, hash_fn: fn(&ArrayCube) -
 			return out;
 		}
 
-		for side in TurnSide::iter() {
+		for side in Turntype::iter() {
 			for wise in TurnWise::iter() {
 				let turn = Turn { side, wise, };
 				if !turns.has_turn(turn) { continue; } // illegal turn
