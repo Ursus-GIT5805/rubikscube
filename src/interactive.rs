@@ -104,11 +104,9 @@ fn render(idx: usize, cube: &[u8], win: &Window) {
     win.printw("│");
 
     win.mv(SIDE_HEIGHT*3+3, 0);
-    win.printw("Press any of these keys to use the move (shift+)(U,D,B,F,L,R)\n");
     win.printw("Move cursor with (i,j,k,l)\n");
     win.printw("Set the color with (w,y|g,b|o,r)\n");
     win.printw("Clear the cube with (shift+)C\n\n");
-    // win.printw(format!("Index {}\n\n", idx));
 
     /*if cube.is_solvable() {
 		win.attron( COLOR_PAIR(3) );

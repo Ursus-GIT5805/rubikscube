@@ -337,15 +337,21 @@ impl CubieCube {
 		}
 	}
 
-	/// Get the corner and orientation at c
+	/// Get the corner and orientation at position 'c'
 	pub const fn corner(&self, c: Corner) -> (Corner, Ori) {
 		self.corners[c as usize]
 	}
 
-	/// Get the edge and orientation at e
+	/// Get the edge and orientation at position 'e'
 	pub const fn edge(&self, e: Edge) -> (Edge, Ori) {
 		self.edges[e as usize]
 	}
+
+	// ===== Coordinates =====
+	//
+	// Functions returning the coordinates of the cube.
+	//
+	// =======================
 
 	/// Return the cube's corner orientation coordinate
 	pub fn get_corner_orientation_coord(&self) -> usize {
@@ -387,14 +393,14 @@ impl CubieCube {
 		map_nck(&chosen)
 	}
 
-	/// Return the cube's corner permutation as a coordinate
+	/// Return the cube's corner permutation as a coordinate.
 	pub fn get_corner_perm_coord(&self) -> usize {
 		let perm = self.corners.iter().map(|(c,_)| *c as usize).collect();
 		map_permutation(&perm)
 	}
 
-	/// Return the cube's edge permutation as a coordinate
-	pub fn get_edge_perm_coord(&self) -> usize {
+	/// Return the cube's coordinate of the non-udslice edges permutation.
+	pub fn get_edge8_perm_coord(&self) -> usize {
 		let perm = self.edges.iter().take(8).map(|(e,_)| *e as usize).collect();
 		map_permutation(&perm)
 	}

@@ -19,24 +19,24 @@ use cube::{
 #[derive(Default, Debug)]
 #[derive(Display)]
 #[derive(Copy, Clone)]
-#[derive(strum::EnumString)]
+#[derive(strum::EnumString, strum::EnumIter)]
 #[repr(usize)]
 enum SolveAlgorithm {
-	THISTLEWAITE,
 	#[default]
 	KOCIEMBA,
+	THISTLEWAITE,
 }
 
 // Using clap for parsing arguments. For more infos about clap, see official docs.
-/// Rubiks cube solver written in Rust
+/// Rubik's Cube solver written in Rust
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
-    /// Play and test the cube interactively
+    /// Enter the cube interactively
     #[arg(short, long, default_value_t = false)]
     interactive: bool,
 
-    /// Use this sequence the to turn the cube
+    /// Use a sequence to apply on the solved cube
     #[arg(short, default_value_t = String::new())]
     sequence: String,
 
@@ -44,15 +44,15 @@ struct Args {
     #[arg(long, default_value_t = String::new())]
     set: String,
 
-    /// Solve the cube (the program outputs a sequence)
+    /// Solve the cube (the output is a sequence)
     #[arg(long, default_value_t = false)]
     solve: bool,
 
-    /// Outputs the cube as a string rather than colored
+    /// Output the cube as a string rather than colored
     #[arg(short, long, default_value_t = false)]
     char_print: bool,
 
-    /// Scrambles the cube randomly (but with a legal state)
+    /// Scramble the cube
     #[arg(short, long, default_value_t = false)]
     random: bool,
 
@@ -60,7 +60,11 @@ struct Args {
 	#[arg(long, default_value_t = SolveAlgorithm::default())]
 	algorithm: SolveAlgorithm,
 
-    /// Prints the output to a file rather to the stdout
+	/// Print all possible algorithms and quit
+	#[arg(long, default_value_t = false)]
+	list_algorithm: bool,
+
+    /// Print the output to a file rather to the stdout
     /// If you want to read the output of the interactive mode, you should use this.
     #[arg(short, long, default_value_t = String::new())]
     output: String,
@@ -73,13 +77,21 @@ fn main() -> std::io::Result<()> {
 	}
 
 	let args = Args::parse();
-    // Wheter to redirect it to the stout or a file
+    // Whether to redirect it to the stout or a file
     let mut out: Box< dyn std::io::Write > = if args.output.is_empty() {
 		Box::new( std::io::stdout() )
     } else {
 		Box::new( std::fs::File::create( args.output )? )
     };
     let mut cube = ArrayCube::default();
+
+	// List the algorithm and exit
+	if args.list_algorithm {
+		for algo in SolveAlgorithm::iter() {
+			writeln!(out, "{}", algo)?;
+		}
+		std::process::exit(0);
+	}
 
     // Shuffles the cube randomly
     if args.random {
@@ -99,21 +111,16 @@ fn main() -> std::io::Result<()> {
 				wise: wises[idx2],
 			};
 
-			print!("{}, ", turn);
-
 			cube.apply_turn(turn);
 		}
-		println!("");
     }
 
     // Parses a cube out of the cube string
-    const DATA_LEN: usize = 54;
+    const DATA_LEN: usize = NUM_SIDES*CUBE_DIM*CUBE_DIM;
     match args.set.len() {
 		0 => {},
 		DATA_LEN => {
 			cube = ArrayCube::from_str( args.set.as_str() ).unwrap();
-			let c: cubiecube::CubieCube = cube.into();
-			cube = c.into();
 		},
 		_ => {
 			eprintln!("The size of the cube string is incorrect. Set size should be {}", DATA_LEN);
@@ -127,7 +134,6 @@ fn main() -> std::io::Result<()> {
     // Use the interactive mode
     if args.interactive {
 		let res = interactive::interactive_mode();
-		println!("{}", res);
 		cube = ArrayCube::from_str(&res).unwrap();
     }
 

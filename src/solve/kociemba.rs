@@ -483,7 +483,7 @@ fn gen2_symmovetable() -> SymMovetable {
 
 fn gen2_edge_perm_movetable() -> Movetable {
 	fn get_phase2_edge_perm(cube: &CubieCube) -> usize {
-		cube.get_edge_perm_coord()
+		cube.get_edge8_perm_coord()
 	}
 
 	fn from_coord(idx: usize) -> CubieCube {
@@ -500,7 +500,7 @@ fn gen2_edge_perm_movetable() -> Movetable {
 
 fn gen2_edge_perm_symtable() -> Symtable {
 	fn get_phase2_edge_perm(cube: &CubieCube) -> usize {
-		cube.get_edge_perm_coord()
+		cube.get_edge8_perm_coord()
 	}
 
 	fn from_coord(idx: usize) -> CubieCube {
@@ -616,7 +616,7 @@ fn get_phase2_coord(cube: &CubieCube) -> usize {
 	fn corner_perm(cube: &CubieCube) -> usize { cube.get_corner_perm_coord() }
 
 	let (z, sym) = get_sym_class(&cube, &toraw2, corner_perm).unwrap();
-	let edge = cube.get_edge_perm_coord();
+	let edge = cube.get_edge8_perm_coord();
 
 	let y = edgesym[ edge ][sym] as usize;
 	y*SYM2_LEN + z
@@ -685,7 +685,6 @@ fn search_phase2(path: &mut Vec<Turn>, cube: CubieCube, g: usize, bound: usize) 
 }
 
 const SLICE_COORD: usize = 495*24;
-
 
 fn gen_rlslice_sorted() -> Movetable {
 	fn get_rlslice_coord(cube: &CubieCube) -> usize {
