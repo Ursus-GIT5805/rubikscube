@@ -1,11 +1,11 @@
-# rubiks-solver | A rubiks cube solver written in Rust.
+# rubiks-solver | A Rubik's Cube solver written in Rust.
 
 ---
 
 ## Requirements
 
-This projects uses [pancurses](https://github.com/ihalila/pancurses), so you need to install the dependencies of pancurses to make it work.
-Under Linux it's `libncurses`.
+This project uses [pancurses](https://github.com/ihalila/pancurses), so you need to install the dependencies of pancurses to make it work.
+Under Linux, it's `libncurses`.
 
 ## Usage
 
@@ -14,22 +14,34 @@ Build it with cargo and for further usage, run it with the flag `-h`.
 For short on Linux:
 
 ```bash
-cargo run -- -h
+cargo run --release -- -h
 ```
 
-## How it works.
+## Solving
 
-This projects uses the Thistlewaite algorithm to solve the rubik's cube (*see more [here](https://www.jaapsch.net/puzzles/thistle.htm)*).
-If you want find out how it works, I'd recommend you go check out the `solve.rs` file.
-I've added a lot of commands there, so I think you'll understand.
+This project implemented following algorithms, which you can change with the `--algorithm` flag:
 
-It is heavily inspired from [this implementation](https://github.com/ldehaudt/Rubik_Solver), written in C++.
+- Kociembas algorithm (default) [https://kociemba.org/cube.htm]
+- Thistlewaites algorithm [https://www.jaapsch.net/puzzles/thistle.htm]
+
+If you want to find out how they work, I'd recommend you go check out the `solve/<algorithm>.rs` files.
+
+If you want to enter the cube, and then get a solving sequence, enter:
+
+```bash
+cargo run --release -- -i --solve
+```
+
+In the base directory.
 
 ## Development
 
 Feel free to open any pull requests.
-I will **probably** not maintain this project for a time after the initial commit.
 
-### TODOS
+Any new solving algorithm should be its own file in `src/solve/`.
+Any new cube representation should be its own file in `src/cube/`.
 
-- [ ] Seperate the library for the rubiks cube to it's own repository
+## Goals
+
+- [ ] Separate library and cli-tool to their own repositories.
+- [ ] Migrate from `pancurses`
