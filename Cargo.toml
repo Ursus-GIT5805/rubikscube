@@ -1,6 +1,6 @@
 [package]
 name = "rubiks-solver"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 
 exclude = [
@@ -9,10 +9,12 @@ exclude = [
 
 [dependencies]
 clap = { version = "4.4.14", features = ["derive"] }
-num-traits = "0.2.17"
 rand = "0.8.5"
 pancurses = { version = "0.17.0", features = ["wide"] }
 strum = { version = "0.25.0", features = ["derive"] }
+const_for = "0.1.4"
+bit-set = "0.6.0"
+lazy_static = "1.5.0"
 
 [profile.release]
 opt-level = 3

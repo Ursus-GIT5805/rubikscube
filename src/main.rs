@@ -1,16 +1,31 @@
+use std::str::FromStr;
+
 use clap::Parser;
 use rand::prelude::*;
-use strum::IntoEnumIterator;
+use strum::{Display, IntoEnumIterator};
 
 mod cube;
 mod interactive;
 mod solve;
+pub mod math;
 
 use cube::{
     *,
     turn::*,
     arraycube::ArrayCube,
 };
+
+#[derive(PartialEq, Eq)]
+#[derive(Default, Debug)]
+#[derive(Display)]
+#[derive(Copy, Clone)]
+#[derive(strum::EnumString)]
+#[repr(usize)]
+enum SolveAlgorithm {
+	THISTLEWAITE,
+	#[default]
+	KOCIEMBA,
+}
 
 // Using clap for parsing arguments. For more infos about clap, see official docs.
 /// Rubiks cube solver written in Rust
@@ -41,51 +56,23 @@ struct Args {
     #[arg(short, long, default_value_t = false)]
     random: bool,
 
+	/// Specify the algorithm used for solving
+	#[arg(long, default_value_t = SolveAlgorithm::default())]
+	algorithm: SolveAlgorithm,
+
     /// Prints the output to a file rather to the stdout
     /// If you want to read the output of the interactive mode, you should use this.
     #[arg(short, long, default_value_t = String::new())]
     output: String,
 }
 
-/// Removes all combined turns.
-/// Core turns are all the U,D,L,R,F,B clockwise, double or counterclockwise
-/// Turns like X,Y,Z are combinations out of the above ones and are so called combined turns.
-fn convert_combined_turns( turns: std::vec::Vec<Turn> )-> std::vec::Vec<Turn> {
-    let mut out = vec![];
-
-    for turn in turns {
-		// Only handles slice turns, since they are the only one supported now.
-		let mut ts = match turn.side {
-			Turntype::S => vec![Turn::from("F'"), Turn::from("B")],
-			Turntype::M => vec![Turn::from("R'"), Turn::from("L")],
-			Turntype::E => vec![Turn::from("U'"), Turn::from("D")],
-			_ => vec![],
-		};
-
-		if !ts.is_empty() {
-			match turn.wise {
-				TurnWise::Clockwise => {},
-				TurnWise::Double => {
-					ts[0].wise = TurnWise::Double;
-					ts[1].wise = TurnWise::Double;
-				},
-				TurnWise::CounterClockwise => {
-					ts[0].wise = TurnWise::Clockwise;
-					ts[1].wise = TurnWise::CounterClockwise;
-				}
-			}
-
-			for t in ts { out.push(t); }
-		} else {
-			out.push(turn);
-		}
-    }
-
-    out
-}
-
 fn main() -> std::io::Result<()> {
-    let args = Args::parse();
+	#[cfg(debug_assertions)]
+	{
+		std::env::set_var("RUST_BACKTRACE", "1");
+	}
+
+	let args = Args::parse();
     // Wheter to redirect it to the stout or a file
     let mut out: Box< dyn std::io::Write > = if args.output.is_empty() {
 		Box::new( std::io::stdout() )
@@ -100,7 +87,7 @@ fn main() -> std::io::Result<()> {
 
 		const MOVES: usize = 15;
 
-		let moves: std::vec::Vec<Turntype> = Turntype::iter().collect();
+		let moves: std::vec::Vec<TurnType> = TurnType::iter().collect();
 		let wises: std::vec::Vec<TurnWise> = TurnWise::iter().collect();
 
 		for _ in 0..MOVES {
@@ -112,8 +99,11 @@ fn main() -> std::io::Result<()> {
 				wise: wises[idx2],
 			};
 
+			print!("{}, ", turn);
+
 			cube.apply_turn(turn);
 		}
+		println!("");
     }
 
     // Parses a cube out of the cube string
@@ -121,11 +111,9 @@ fn main() -> std::io::Result<()> {
     match args.set.len() {
 		0 => {},
 		DATA_LEN => {
-			let bytes = args.set.as_bytes();
-			for (i, byte) in bytes.iter().enumerate().take(DATA_LEN) {
-				let v = byte - b'a';
-				cube.data[i] = v;
-			}
+			cube = ArrayCube::from_str( args.set.as_str() ).unwrap();
+			let c: cubiecube::CubieCube = cube.into();
+			cube = c.into();
 		},
 		_ => {
 			eprintln!("The size of the cube string is incorrect. Set size should be {}", DATA_LEN);
@@ -134,31 +122,41 @@ fn main() -> std::io::Result<()> {
     }
 
     // Applies turns from args
-    cube.apply_turns(parse_turns(args.sequence));
+    cube.apply_turns( parse_turns(args.sequence).unwrap() );
 
     // Use the interactive mode
     if args.interactive {
-		interactive::interactive_mode(&mut cube);
+		let res = interactive::interactive_mode();
+		println!("{}", res);
+		cube = ArrayCube::from_str(&res).unwrap();
     }
 
     // Solve the cube and only outputs the sequence
     if args.solve {
-		let turns = convert_combined_turns( solve::thistlewhaite::solve(cube) );
+		let seq = match args.algorithm {
+			SolveAlgorithm::THISTLEWAITE => solve::thistlewhaite::solve(cube),
+			SolveAlgorithm::KOCIEMBA => solve::kociemba::solve(cube),
+		};
 
-		for turn in turns {
-			write!(out.as_mut(), "{} ", turn)?;
+		match seq {
+			Some(turns) => {
+				for turn in turns {
+					write!(out.as_mut(), "{} ", turn)?;
+				}
+				writeln!(out.as_mut())?;
+				std::process::exit(0);
+			},
+			None => {
+				eprintln!("Could not solve given Rubik's Cube!");
+				std::process::exit(1);
+			}
 		}
-		writeln!(out.as_mut())?;
-		std::process::exit(0);
     }
 
     // Print the resulting cube (either as a string or with colors)
     if args.char_print {
-		for s in cube.data {
-			let c = (b'a' + s) as char;
-			write!(out.as_mut(), "{}", c)?;
-		}
-		writeln!(out.as_mut())?;
+		let s: String = cube.into();
+		writeln!(out.as_mut(), "{}", s)?;
     } else {
 		cube.print();
     }

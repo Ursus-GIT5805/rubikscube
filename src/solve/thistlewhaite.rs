@@ -9,19 +9,19 @@ use strum::*;
 /// Simple helper struct to have keep track of the legal moves
 #[derive(Default)]
 struct TurnSet {
-    set: [bool; NUM_TURNTYPES*NUM_TURN_WISES]
+    set: [bool; NUM_TURNTYPES*NUM_TURNWISES]
 }
 
 impl TurnSet {
     /// Create a full set with all possible turns in the set.
     pub fn new() -> Self {
-		let set = [true; NUM_TURNTYPES*NUM_TURN_WISES];
+		let set = [true; NUM_TURNTYPES*NUM_TURNWISES];
 		Self { set }
     }
 
     /// Helper function to create the index from a turn
     fn hash(turn: Turn) -> usize {
-		(turn.side as usize)*NUM_TURN_WISES + turn.wise as usize
+		(turn.side as usize)*NUM_TURNWISES + turn.wise as usize
     }
 
     /// Remove the given turn. Does nothing if the turn isn't in the set
@@ -47,10 +47,10 @@ impl TurnSet {
 /// turns: The legal turns you can apply on the cube
 /// hasn_fn: The hash_function for the cube
 /// goal: The goal hash
-fn bfs_solve(initial: &mut ArrayCube, turns: &TurnSet, hash_fn: fn(&ArrayCube) -> u64, goal: u64) -> std::vec::Vec<Turn> {
+fn bfs_solve(initial: &mut ArrayCube, turns: &TurnSet, hash_fn: fn(&ArrayCube) -> u64, goal: u64) -> Option<Vec<Turn>> {
     let mut queue = VecDeque::<(ArrayCube, Turn)>::new();
     let mut vis = HashMap::<u64,Turn>::new();
-    queue.push_front((initial.clone(), Turn { side: Turntype::U, wise: TurnWise::Clockwise }));
+    queue.push_front((initial.clone(), Turn { side: TurnType::U, wise: TurnWise::Clockwise }));
 
     const MAX_ITERATION: usize = 1_500_000;
     let mut iteration: usize = 0;
@@ -64,7 +64,7 @@ fn bfs_solve(initial: &mut ArrayCube, turns: &TurnSet, hash_fn: fn(&ArrayCube) -
 		iteration += 1;
 		// print!("Iteration {}\r", iteration);
 		if MAX_ITERATION < iteration {
-			panic!("More iteration than needed!");
+			return None;
 		}
 
 		if hash == goal {
@@ -88,10 +88,10 @@ fn bfs_solve(initial: &mut ArrayCube, turns: &TurnSet, hash_fn: fn(&ArrayCube) -
 			*initial = state;
 
 			out.reverse();
-			return out;
+			return Some(out);
 		}
 
-		for side in Turntype::iter() {
+		for side in TurnType::iter() {
 			for wise in TurnWise::iter() {
 				let turn = Turn { side, wise, };
 				if !turns.has_turn(turn) { continue; } // illegal turn
@@ -104,7 +104,8 @@ fn bfs_solve(initial: &mut ArrayCube, turns: &TurnSet, hash_fn: fn(&ArrayCube) -
 		}
     }
 
-    panic!("No solution found! Iteration {}", iteration)
+	// println!("Ran out");
+	None
 }
 
 /// Adjust the legal turns after a phase ends.
@@ -115,11 +116,11 @@ fn end_phase(phase: usize, set: &mut TurnSet) {
     match phase {
 		// Phase one is done, that means only F2 and B2 are legal
 		// Because of that, set every move that uses F or B quarters to illegal
-		1 => set.vec_remove( parse_turns("F F' B B' X X'") ),
+		1 => set.vec_remove( parse_turns("F F' B B'").unwrap() ),
 		// Now only R2 and L2 are legal
-		2 => set.vec_remove( parse_turns("R R' L L' Y Y'") ),
+		2 => set.vec_remove( parse_turns("R R' L L'").unwrap() ),
 		// Now only U2 and D2 are legal, i.e now only half turns are legal after this
-		3 => set.vec_remove( parse_turns("U U' D D' Z Z'") ),
+		3 => set.vec_remove( parse_turns("U U' D D'").unwrap() ),
 		_ => {},
     }
 }
@@ -140,7 +141,7 @@ fn hash_phase1(cube: &ArrayCube) -> u64 {
 fn hash_phase2(cube: &ArrayCube) -> u64 {
     let mut hash: u64 = 0;
     // Put each orientation of all corners
-    // Each quarter changes the orientation of an edge, except for up and down quarters.
+    // Each quarter changes the orientation of a corner, except for up and down quarters.
     // Hence, after this phase, each orientation of an corner has to be 0 (back to normal)
     for corner in Corner::iter() {
 		let (_c, ori) = cube.get_corner_at_pos(corner).unwrap();
@@ -171,7 +172,7 @@ fn hash_phase3(cube: &ArrayCube) -> u64 {
     // Each color of one side must be either the one of their side or the one of the opposite side.
     // The first part of the hash is a bitstring where hash[i] is 1 if the color follows this criteria.
     for i in 0..(9 * NUM_SIDES) {
-		hash = (hash << 1) + (cube.data[i] / 2 == (i as u8 / 9 / 2)) as u64;
+		hash = (hash << 1) + (cube.data[i] / 18 == (i as u8 / 18)) as u64;
     }
 
     // Each corner should be on the correct place.
@@ -207,7 +208,7 @@ fn hash_phase4(cube: &ArrayCube) -> u64 {
     // The entire cube must be solved.
     // So the hash is basically a bitstring where hash[i] is 1 if the color is correct.
     for i in 0..(9 * NUM_SIDES) {
-		hash = (hash << 1) + (cube.data[i] == i as u8 / 9) as u64;
+		hash = (hash << 1) + (cube.data[i] == i as u8) as u64;
     }
 
     hash
@@ -221,7 +222,7 @@ fn post_solve_optimization( turns: std::vec::Vec<Turn> ) -> std::vec::Vec<Turn> 
 		if let Some(t) = out.last() {
 			// If 2 following turns turn the same side, combine it into one single turn
 			if t.side == turn.side {
-				let new = (t.wise as usize + turn.wise as usize + 2) % (NUM_TURN_WISES+1);
+				let new = (t.wise as usize + turn.wise as usize + 2) % (NUM_TURNWISES+1);
 				let idx = out.len()-1;
 				match new {
 					0 => { let _ = out.pop(); },
@@ -240,12 +241,48 @@ fn post_solve_optimization( turns: std::vec::Vec<Turn> ) -> std::vec::Vec<Turn> 
     out
 }
 
+/// Removes all combined turns.
+/// Core turns are all the U,D,L,R,F,B clockwise, double or counterclockwise
+/// Turns like X,Y,Z are combinations out of the above ones and are so called combined turns.
+fn convert_combined_turns( turns: std::vec::Vec<Turn> )-> std::vec::Vec<Turn> {
+    let mut out = vec![];
+
+    for turn in turns {
+		// Only handles slice turns, since they are the only one supported now.
+		let mut ts: Vec<Turn> = match turn.side {
+			// TurnType::S => vec![Turn::from("F'"), Turn::from("B")],
+			// TurnType::M => vec![Turn::from("R'"), Turn::from("L")],
+			// TurnType::E => vec![Turn::from("U'"), Turn::from("D")],
+			_ => vec![],
+		};
+
+		if !ts.is_empty() {
+			match turn.wise {
+				TurnWise::Clockwise => {},
+				TurnWise::Double => {
+					ts[0].wise = TurnWise::Double;
+					ts[1].wise = TurnWise::Double;
+				},
+				TurnWise::CounterClockwise => {
+					ts[0].wise = TurnWise::Clockwise;
+					ts[1].wise = TurnWise::CounterClockwise;
+				}
+			}
+
+			for t in ts { out.push(t); }
+		} else {
+			out.push(turn);
+		}
+    }
+
+    out
+}
 
 /// Solve the cube using the thistlewaite algorithm and return the solving-sequence.
 ///
 /// cube: The cube to solve
-pub fn solve(cube: ArrayCube) -> std::vec::Vec<Turn> {
-    if !cube.is_solvable() { return vec![]; }
+pub fn solve(cube: ArrayCube) -> Option<Vec<Turn>> {
+    if !cube.is_solvable() { return None; }
 
     let solved = ArrayCube::default();
     let mut solve = cube.clone();
@@ -266,11 +303,14 @@ pub fn solve(cube: ArrayCube) -> std::vec::Vec<Turn> {
 		let goal = hash_fn(&solved);
 
 		// Do the BFS
-		let turns = bfs_solve(&mut solve, &allowed_moves, hash_fn, goal);
-
-		// Push the turns to the output sequence
-		for turn in turns {
-			seq.push(turn);
+		match bfs_solve(&mut solve, &allowed_moves, hash_fn, goal) {
+			Some(turns) => {
+				// Push the turns to the output sequence
+				for turn in turns {
+					seq.push(turn);
+				}
+			},
+			None => return None,
 		}
 
 		// Disallow certain turns
@@ -281,5 +321,6 @@ pub fn solve(cube: ArrayCube) -> std::vec::Vec<Turn> {
     test.apply_turns(seq.clone());
     assert_eq!(test, solved); // superfluous, but to be sure...
     seq = post_solve_optimization( seq ); // Do some optimization to the sequence afterwards.
-    seq
+
+    Some( convert_combined_turns(seq) )
 }

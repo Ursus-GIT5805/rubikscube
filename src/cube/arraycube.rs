@@ -1,5 +1,9 @@
+use std::{ops::Mul, str::FromStr};
+
 use crate::cube::*;
 use strum::*;
+
+use const_for::const_for;
 
 const CUBEDATA_LEN: usize = CUBE_DIM * CUBE_DIM * NUM_SIDES;
 
@@ -18,32 +22,28 @@ pub struct ArrayCube {
 impl Default for ArrayCube {
     /// Creates a *solved* rubiks cube!
     fn default() -> Self {
-		let mut data = [UNKNOWN; CUBE_DIM*CUBE_DIM*NUM_SIDES];
-		for side in 0..NUM_SIDES {
-			for i in 0..(CUBE_DIM*CUBE_DIM) {
-				data[side*(CUBE_DIM*CUBE_DIM) + i] = side as u8;
-			}
-		}
-
-		Self { data }
+		Self { data: T_BASE }
     }
 }
 
 /// Chain 2 transformations (t1 and t2) to one transformation.
 /// It returns a new transformation, in which first t1 is applied, then t2.
-const fn chain_transform(t1: CubeData, t2: CubeData) -> CubeData {
+pub const fn chain_transform(t1: CubeData, t2: CubeData) -> CubeData {
     let mut out = [0; CUBEDATA_LEN];
 
-    let mut i = 0;
-    loop {
-		if i == CUBEDATA_LEN { break; }
-
-		out[i] = t2[ t1[i] as usize ];
-
-		i += 1;
-    }
+	const_for!(i in 0..CUBEDATA_LEN => {
+		out[i] = t1[ t2[i] as usize ];
+	});
 
     out
+}
+
+const fn is_base(t1: CubeData) -> bool {
+	const_for!(i in 0..CUBEDATA_LEN => {
+		if t1[i] != i as u8 { return false; }
+	});
+
+	true
 }
 
 // ==== TRANSFORMATION MATRICES =====
@@ -57,16 +57,15 @@ const fn chain_transform(t1: CubeData, t2: CubeData) -> CubeData {
  */
 
 
-/* Transformation for doing nothing
- * const T_BASE: CubeData = [
- * 0,  1,  2,  3,  4,  5,  6,  7,  8, // up
- * 9, 10, 11, 12, 13, 14, 15, 16, 17, // down
- * 18, 19, 20, 21, 22, 23, 24, 25, 26, // back
- * 27, 28, 29, 30, 31, 32, 33, 34, 35, // front
- * 36, 37, 38, 39, 40, 41, 42, 43, 44, // left
- * 45, 46, 47, 48, 49, 50, 51, 52, 53, // right
- * ];
- */
+// Neutral Transformation: Does nothing
+const T_BASE: CubeData = [
+	0,  1,  2,  3,  4,  5,  6,  7,  8, // up
+	9, 10, 11, 12, 13, 14, 15, 16, 17, // down
+	18, 19, 20, 21, 22, 23, 24, 25, 26, // back
+	27, 28, 29, 30, 31, 32, 33, 34, 35, // front
+	36, 37, 38, 39, 40, 41, 42, 43, 44, // left
+	45, 46, 47, 48, 49, 50, 51, 52, 53, // right
+];
 
 const T_UP: CubeData = [
     6,  3,  0,  7,  4,  1,  8,  5,  2, // up (totally changed)
@@ -122,72 +121,176 @@ const T_RIGHT: CubeData = [
     51, 48, 45, 52, 49, 46, 53, 50, 47, // right
 ];
 
-const T_UP_HALF: CubeData = chain_transform(T_UP, T_UP);
-const T_DOWN_HALF: CubeData = chain_transform(T_DOWN, T_DOWN);
-const T_BACK_HALF: CubeData = chain_transform(T_BACK, T_BACK);
-const T_FRONT_HALF: CubeData = chain_transform(T_FRONT, T_FRONT);
-const T_LEFT_HALF: CubeData = chain_transform(T_LEFT, T_LEFT);
-const T_RIGHT_HALF: CubeData = chain_transform(T_RIGHT, T_RIGHT);
+const fn generate_transformation_table() -> [[CubeData; NUM_TURNWISES]; NUM_TURNTYPES] {
+	const BASE: [CubeData; NUM_SIDES] = [
+		T_UP, T_DOWN,
+		T_BACK, T_FRONT,
+		T_LEFT, T_RIGHT,
+	];
 
-const T_UP_COUNTER: CubeData = chain_transform(T_UP_HALF, T_UP);
-const T_DOWN_COUNTER: CubeData = chain_transform(T_DOWN_HALF, T_DOWN);
-const T_BACK_COUNTER: CubeData = chain_transform(T_BACK_HALF, T_BACK);
-const T_FRONT_COUNTER: CubeData = chain_transform(T_FRONT_HALF, T_FRONT);
-const T_LEFT_COUNTER: CubeData = chain_transform(T_LEFT_HALF, T_LEFT);
-const T_RIGHT_COUNTER: CubeData = chain_transform(T_RIGHT_HALF, T_RIGHT);
+	let mut out = [[T_BASE; NUM_TURNWISES]; NUM_TURNTYPES];
 
-const T_SLICE_X: CubeData = chain_transform(T_FRONT_COUNTER, T_BACK);
-const T_SLICE_X_HALF: CubeData = chain_transform(T_SLICE_X, T_SLICE_X);
-const T_SLICE_X_COUNTER: CubeData = chain_transform(T_SLICE_X_HALF, T_SLICE_X);
+	const_for!(i in 0..NUM_SIDES => {
+		out[i][0] = BASE[i];
+		const_for!(j in 1..NUM_TURNWISES => {
+			out[i][j] = chain_transform(out[i][j-1], BASE[i]);
+		});
+	});
 
-const T_SLICE_Y: CubeData = chain_transform(T_RIGHT_COUNTER, T_LEFT);
-const T_SLICE_Y_HALF: CubeData = chain_transform(T_SLICE_Y, T_SLICE_Y);
-const T_SLICE_Y_COUNTER: CubeData = chain_transform(T_SLICE_Y_HALF, T_SLICE_Y);
-
-const T_SLICE_Z: CubeData = chain_transform(T_UP_COUNTER, T_DOWN);
-const T_SLICE_Z_HALF: CubeData = chain_transform(T_SLICE_Z, T_SLICE_Z);
-const T_SLICE_Z_COUNTER: CubeData = chain_transform(T_SLICE_Z_HALF, T_SLICE_Z);
+	out
+}
 
 // The transformation matrices, sorted into an multidimensional list
-const TRANSFORM: [[CubeData; NUM_TURN_WISES]; NUM_TURNTYPES] = [
-    [T_UP, T_UP_HALF, T_UP_COUNTER],
-    [T_DOWN, T_DOWN_HALF, T_DOWN_COUNTER],
-    [T_BACK, T_BACK_HALF, T_BACK_COUNTER],
-    [T_FRONT, T_FRONT_HALF, T_FRONT_COUNTER],
-    [T_LEFT, T_LEFT_HALF, T_LEFT_COUNTER],
-    [T_RIGHT, T_RIGHT_HALF, T_RIGHT_COUNTER],
+const TRANSFORM: [[CubeData; NUM_TURNWISES]; NUM_TURNTYPES] = generate_transformation_table();
 
-    [T_SLICE_X, T_SLICE_X_HALF, T_SLICE_X_COUNTER],
-    [T_SLICE_Y, T_SLICE_Y_HALF, T_SLICE_Y_COUNTER],
-    [T_SLICE_Z, T_SLICE_Z_HALF, T_SLICE_Z_COUNTER],
-];
+fn convert_vec_to_transformation(turns: &Vec<Turn>) -> CubeData {
+	let mut out = T_BASE;
+
+	for turn in turns {
+		let t = TRANSFORM[ turn.side as usize ][ turn.wise as usize ];
+		out = chain_transform(t, out);
+	}
+
+	out
+}
 
 // =========
+
+impl FromStr for ArrayCube {
+	type Err = ();
+
+	fn from_str(s: &str) -> Result<Self, Self::Err> {
+		if s.len() != CUBEDATA_LEN { return Err(()); }
+
+		let mut cube = ArrayCube::new();
+
+		for (i,c) in s.as_bytes().iter().enumerate() {
+			cube.data[i] = (*c - 'a' as u8) * (CUBE_DIM*CUBE_DIM) as u8;
+		}
+
+		for i in (4..54).step_by(9) {
+			cube.data[i] = i as u8;
+		}
+
+		for corner in Corner::iter() {
+			let (c,o) = cube.get_corner_at_pos(corner).unwrap();
+			let (i1,i2,i3) = corner_to_indices(corner);
+
+			let (c1,c2,c3) = corner_to_indices(c);
+			let cols = [c1,c2,c3];
+			cube.data[i1] = cols[o % 3] as u8;
+			cube.data[i2] = cols[(1+o) % 3] as u8;
+			cube.data[i3] = cols[(2+o) % 3] as u8;
+		}
+
+		for pos in Edge::iter() {
+			let (e, o) = cube.get_edge_at_pos(pos).unwrap();
+
+			// The 2 indices to write to
+			let (i1,i2) = edge_to_indices(pos);
+			// The actual 2 colors there
+			let (c1,c2) = edge_to_indices(e);
+			let cols = [c1,c2];
+
+			cube.data[i1] = cols[o % 2] as u8;
+			cube.data[i2] = cols[(1+o) % 2] as u8;
+		}
+
+		Ok( cube )
+	}
+}
+
+impl Into<String> for ArrayCube {
+	fn into(self) -> String {
+		self.data.iter().map(|c| ((c/9) + 'a' as u8) as char ).collect()
+	}
+}
 
 impl RubiksCube for ArrayCube {
     fn apply_turn(&mut self, turn: Turn) {
 		// Get the transformation matrix (which is easy because it's carefully sorted)
 		let transform = TRANSFORM[ turn.side as usize ][ turn.wise as usize ];
-
-		// Apply the matrix to the current state of cube
-		let bef = self.data;
-		for i in 0..(CUBE_DIM*CUBE_DIM*NUM_SIDES) {
-			self.data[i] = bef[ transform[i] as usize ];
-		}
+		self.apply_transform(transform);
     }
 }
 
+/// Return the indices given the corner c as a position.
+pub const fn corner_to_indices(c: Corner) -> (usize,usize,usize) {
+	// Return index of (x/y) at the given side
+	const fn help(side: Side, x: usize, y: usize) -> usize {
+		side as usize * CUBE_DIM*CUBE_DIM + x + y*CUBE_DIM
+	}
+
+	// Get the 3 indices of the corner
+	// Note: the Corner::URF means, first Up, then Right, then Front,
+	// (The order of the characters are relevant!)
+	match c {
+		Corner::URF => (help(UP,2,2), help(RIGHT,0,0), help(FRONT,2,0) ),
+		Corner::UBR => (help(UP,2,0), help(BACK,0,0), help(RIGHT,2,0) ),
+		Corner::DLF => (help(DOWN,0,0), help(LEFT,2,2), help(FRONT,0,2) ),
+		Corner::DFR => (help(DOWN,2,0), help(FRONT,2,2), help(RIGHT,0,2) ),
+
+		Corner::ULB => (help(UP,0,0), help(LEFT,0,0), help(BACK,2,0) ),
+		Corner::UFL => (help(UP,0,2), help(FRONT,0,0), help(LEFT,2,0) ),
+		Corner::DRB => (help(DOWN,2,2), help(RIGHT,2,2), help(BACK,0,2) ),
+		Corner::DBL => (help(DOWN,0,2), help(BACK,2,2), help(LEFT,0,2) ),
+	}
+}
+
+/// Return the indices given the edge e as a position.
+pub const fn edge_to_indices(e: Edge) -> (usize,usize) {
+	// Return index of (x/y) at the given side
+	const fn help(side: Side, x: usize, y: usize) -> usize {
+		side as usize * CUBE_DIM*CUBE_DIM + x + y*CUBE_DIM
+	}
+
+	// Get the 2 indices of the edge
+	// Note that Edge::UF means: first the Up side, then the Front side
+	match e {
+		Edge::UF => (help(UP,1,2), help(FRONT,1,0)),
+		Edge::UR => (help(UP,2,1), help(RIGHT,1,0)),
+		Edge::UB => (help(UP,1,0), help(BACK,1,0)),
+		Edge::UL => (help(UP,0,1), help(LEFT,1,0)),
+
+		Edge::DF => (help(DOWN,1,0), help(FRONT,1,2)),
+		Edge::DR => (help(DOWN,2,1), help(RIGHT,1,2)),
+		Edge::DB => (help(DOWN,1,2), help(BACK,1,2)),
+		Edge::DL => (help(DOWN,0,1), help(LEFT,1,2)),
+
+		Edge::FR => (help(FRONT,2,1), help(RIGHT,0,1)),
+		Edge::BR => (help(BACK,0,1), help(RIGHT,2,1)),
+		Edge::BL => (help(BACK,2,1), help(LEFT,0,1)),
+		Edge::FL => (help(FRONT,0,1), help(LEFT,2,1)),
+	}
+}
+
 impl ArrayCube {
-    /// Print the cube in the *standard output* with ANSI-colors
+	pub fn new() -> Self {
+		Self::default()
+	}
+
+	pub fn apply_transform(&mut self, trans: CubeData) {
+		let bef = self.data;
+		for i in 0..CUBEDATA_LEN {
+			self.data[i] = bef[ trans[i] as usize ];
+		}
+	}
+
+	/// Print the cube in the *standard output* with ANSI-colors
     pub fn print(&self) {
 		// Generate a space depending on the size of CUBE_DIM
 		let space: String = std::iter::repeat(" ").take(2*CUBE_DIM + 1).collect::<String>();
+
+		const CD2: usize = CUBE_DIM*CUBE_DIM;
+		const fn help(side: Side, x: usize, y: usize) -> usize {
+			(side as usize)*(CUBE_DIM*CUBE_DIM) + x + y*CUBE_DIM
+		}
 
 		// Print Up-side
 		for j in 0..CUBE_DIM {
 			print!("{}", space);
 			for i in 0..CUBE_DIM {
-				print!("{}▀ ", get_ansii_color(self.data[ (UP as usize)*(CUBE_DIM*CUBE_DIM) + i+j*CUBE_DIM ]));
+				print!("{}▀ ", get_ansii_color(self.data[help(UP, i, j)] / CD2 as u8));
 			}
 			println!();
 		}
@@ -197,7 +300,7 @@ impl ArrayCube {
 		for j in 0..CUBE_DIM {
 			for s in SIDES {
 				for i in 0..CUBE_DIM {
-					print!("{}▄ ", get_ansii_color(self.data[ (s as usize)*(CUBE_DIM*CUBE_DIM) + i+j*CUBE_DIM ]));
+					print!("{}▄ ", get_ansii_color(self.data[help(s, i, j)] / CD2 as u8));
 				}
 				print!(" ");
 			}
@@ -209,12 +312,12 @@ impl ArrayCube {
 		for j in 0..CUBE_DIM {
 			print!("{}", space);
 			for i in 0..CUBE_DIM {
-				print!("{}▀ ", get_ansii_color(self.data[ (DOWN as usize)*(CUBE_DIM*CUBE_DIM) + i+j*CUBE_DIM ]));
+				print!("{}▀ ", get_ansii_color(self.data[help(DOWN, i, j)] / CD2 as u8));
 			}
 			println!();
 		}
 		// Reset ansii color
-		print!("\x1b[00m");
+		println!("\x1b[00m");
     }
 
     /// Apply the given sequence of turns.
@@ -226,46 +329,29 @@ impl ArrayCube {
 
     /// Returns the corner at the position and it's orientation
     /// When you turn the corner piece to it's original place, without turning the front/down, left/right side
-    /// an odd number of times, the orientation is as follows:
+    /// an odd number of quarters, the orientation is as follows:
     /// 0, if it's correctly in it's place
     /// 1, if it's rotated once in counterclockwise
     /// 2, if not 0 or 1, i.e it's rotated clockwise once.
     pub fn get_corner_at_pos( &self, pos: Corner ) -> Option<(Corner, usize)> {
-		const fn help(side: Side, x: usize, y: usize) -> usize {
-			side as usize * CUBE_DIM*CUBE_DIM + x + y*CUBE_DIM
-		}
-
-		// Get the 3 indices of the corner
-		// Not the Corner::URF means, first Up, then Right, then Front,
-		// (The order of the characters are relevant!)
-		let (i1,i2,i3) = match pos {
-			Corner::URF => (help(UP,2,2), help(RIGHT,0,0), help(FRONT,2,0) ),
-			Corner::UBR => (help(UP,2,0), help(BACK,0,0), help(RIGHT,2,0) ),
-			Corner::DLF => (help(DOWN,0,0), help(LEFT,2,2), help(FRONT,0,2) ),
-			Corner::DFR => (help(DOWN,2,0), help(FRONT,2,2), help(RIGHT,0,2) ),
-
-			Corner::ULB => (help(UP,0,0), help(LEFT,0,0), help(BACK,2,0) ),
-			Corner::UFL => (help(UP,0,2), help(FRONT,0,0), help(LEFT,2,0) ),
-			Corner::DRB => (help(DOWN,2,2), help(RIGHT,2,2), help(BACK,0,2) ),
-			Corner::DBL => (help(DOWN,0,2), help(BACK,2,2), help(LEFT,0,2) ),
-		};
+		let (i1,i2,i3) = corner_to_indices(pos);
 
 		// Extract the colors
-		let cols = [ self.data[i1], self.data[i2], self.data[i3] ];
+		let cols = [ self.data[i1] / 9, self.data[i2] / 9, self.data[i3] / 9 ];
 
 		let corner = Corner::parse_corner(cols)?;
 		let ori = match corner {
 			Corner::URF | Corner::UBR | Corner::ULB | Corner::UFL => {
 				if cols[0] == UP { 0 }
-				else if cols[1] == UP { 1 }
-				else if cols[2] == UP { 2 }
-				else { panic!() }
+				else if cols[1] == UP { 2 }
+				else if cols[2] == UP { 1 }
+				else { return None; }
 			},
 			Corner::DLF | Corner::DFR | Corner::DRB | Corner::DBL => {
 				if cols[0] == DOWN { 0 }
-				else if cols[1] == DOWN { 1 }
-				else if cols[2] == DOWN { 2 }
-				else { panic!() }
+				else if cols[1] == DOWN { 2 }
+				else if cols[2] == DOWN { 1 }
+				else { return None; }
 			}
 		};
 
@@ -278,34 +364,14 @@ impl ArrayCube {
     /// 0, if it's correctly in it's place
     /// 1, if it's wrong in it's place
     pub fn get_edge_at_pos( &self,  pos: Edge ) -> Option<(Edge, usize)> {
-		const fn help(side: Side, x: usize, y: usize) -> usize {
-			side as usize * CUBE_DIM*CUBE_DIM + x + y*CUBE_DIM
-		}
-
-		// Get the 2 indices of the edge
-		// Note that Edge::UF means: first the Up side, then the Front side
-		let (i1,i2) = match pos {
-			Edge::UF => (help(UP,1,2), help(FRONT,1,0)),
-			Edge::UR => (help(UP,2,1), help(RIGHT,1,0)),
-			Edge::UB => (help(UP,1,0), help(BACK,1,0)),
-			Edge::UL => (help(UP,0,1), help(LEFT,1,0)),
-
-			Edge::DF => (help(DOWN,1,0), help(FRONT,1,2)),
-			Edge::DR => (help(DOWN,2,1), help(RIGHT,1,2)),
-			Edge::DB => (help(DOWN,1,2), help(BACK,1,2)),
-			Edge::DL => (help(DOWN,0,1), help(LEFT,1,2)),
-
-			Edge::FR => (help(FRONT,2,1), help(RIGHT,0,1)),
-			Edge::BR => (help(BACK,0,1), help(RIGHT,2,1)),
-			Edge::BL => (help(BACK,2,1), help(LEFT,0,1)),
-			Edge::FL => (help(FRONT,0,1), help(LEFT,2,1)),
-		};
+		let (i1,i2) = edge_to_indices(pos);
 
 		// Extract the color
-		let cols = [ self.data[i1], self.data[i2] ];
+		let cols = [ self.data[i1] / 9, self.data[i2] / 9 ];
 
 		let edge = Edge::parse_edge(cols)?;
 		// Find out the orientation
+		// If the colors are in the order, it is not flipped
 		let ori = match edge {
 			Edge::UF | Edge::UR | Edge::UB | Edge::UL => cols[0] != UP,
 			Edge::DF | Edge::DR | Edge::DB | Edge::DL => cols[0] != DOWN,
@@ -345,20 +411,150 @@ impl ArrayCube {
 		if (ori % 3) != 0 { return false; }
 
 		let mut face_cnt = [0usize; NUM_SIDES];
-		for col in self.data { face_cnt[col as usize] += 1; }
+		for ele in self.data { face_cnt[ele as usize / 9] += 1 }
 		for cnt in face_cnt {
 			if cnt != CUBE_DIM*CUBE_DIM { return false; }
 		}
 
 		true
     }
+
+	pub fn is_solved(&self) -> bool {
+		self.data == T_BASE
+	}
 }
 
-// =============== //
+impl From<CubeData> for ArrayCube {
+	fn from(item: CubeData) -> Self {
+		Self { data: item }
+	}
+}
+
+
+impl From<Vec<Turn>> for ArrayCube {
+	fn from(item: Vec<Turn>) -> Self {
+		Self::from( convert_vec_to_transformation(&item) )
+	}
+}
+
+impl Mul for ArrayCube {
+    type Output = Self;
+
+    fn mul(self, rhs: Self) -> Self {
+		Self {
+			data: chain_transform(self.data, rhs.data),
+		}
+    }
+}
+
+
+// ===== Symmetry Transformations =====
+
+const BASE_SYMMETRY: [CubeData; 4] = [
+	//S_URF3
+	[33, 30, 27, 34, 31, 28, 35, 32, 29,
+	 24, 21, 18, 25, 22, 19, 26, 23, 20,
+	 38, 41, 44, 37, 40, 43, 36, 39, 42,
+	 51, 48, 45, 52, 49, 46, 53, 50, 47,
+	  9, 10, 11, 12, 13, 14, 15, 16, 17,
+	  8,  7,  6,  5,  4,  3,  2,  1,  0] ,
+
+	//S_F2
+	[17, 16, 15, 14, 13, 12, 11, 10,  9,
+	  8,  7,  6,  5,  4,  3,  2,  1,  0,
+	 26, 25, 24, 23, 22, 21, 20, 19, 18,
+	 35, 34, 33, 32, 31, 30, 29, 28, 27,
+	 53, 52, 51, 50, 49, 48, 47, 46, 45,
+	 44, 43, 42, 41, 40, 39, 38, 37, 36],
+
+	// S_U4
+	[ 6,  3,  0,  7,  4,  1,  8,  5,  2,
+	 11, 14, 17, 10, 13, 16, 9,  12, 15,
+	 36, 37, 38, 39, 40, 41, 42, 43, 44,
+	 45, 46, 47, 48, 49, 50, 51, 52, 53,
+	 27, 28, 29, 30, 31, 32, 33, 34, 35,
+	 18, 19, 20, 21, 22, 23, 24, 25, 26],
+
+	//S_LR2
+	[ 2,  1,  0,  5,  4,  3,  8,  7,  6,
+	 11, 10,  9, 14, 13, 12, 17, 16, 15,
+	 20, 19, 18, 23, 22, 21, 26, 25, 24,
+	 29, 28, 27, 32, 31, 30, 35, 34, 33,
+	 47, 46, 45, 50, 49, 48, 53, 52, 51,
+	 38, 37, 36, 41, 40, 39, 44, 43, 42],
+];
+
+pub const NUM_SYMMETRIES: usize = 48;
+
+pub const fn generate_symmetries() -> [CubeData; NUM_SYMMETRIES] {
+	let mut out = [[0; CUBEDATA_LEN]; NUM_SYMMETRIES];
+
+	const_for!(x1 in 0..3 => {
+		const_for!(x2 in 0..2 => {
+			const_for!(x3 in 0..4 => {
+				const_for!(x4 in 0..2 => {
+					let mut t = T_BASE;
+					const_for!(_ in 0..x1 => {
+						t = chain_transform(t, BASE_SYMMETRY[0]);
+					});
+					const_for!(_ in 0..x2 => {
+						t = chain_transform(t, BASE_SYMMETRY[1]);
+					});
+					const_for!(_ in 0..x3 => {
+						t = chain_transform(t, BASE_SYMMETRY[2]);
+					});
+					const_for!(_ in 0..x4 => {
+						t = chain_transform(t, BASE_SYMMETRY[3]);
+					});
+
+					let idx = 16*x1 + 8*x2 + 2*x3 + x4;
+					out[idx] = t;
+				});
+			});
+
+		});
+	});
+
+	out
+}
+
+pub const SYMMETRIES: [CubeData; NUM_SYMMETRIES] = generate_symmetries();
+
+pub const fn generate_symmetry_inverse_list() -> [usize; NUM_SYMMETRIES] {
+	let mut out = [NUM_SYMMETRIES; NUM_SYMMETRIES];
+	const SYM: [CubeData; NUM_SYMMETRIES] = generate_symmetries();
+
+	const_for!(i in 0..NUM_SYMMETRIES => {
+		const_for!(j in 0.. NUM_SYMMETRIES => {
+			if is_base(chain_transform(SYM[i], SYM[j])) {
+				out[i] = j;
+				break;
+			}
+		});
+	});
+
+	out
+}
+
+/// Symmetry index of 'i' is SYM[i]
+pub const SYMMETRY_INVERSE: [usize; NUM_SYMMETRIES] = generate_symmetry_inverse_list();
+
+/// Return the i-th symmetry of cube
+pub fn get_symmetry(cube: &ArrayCube, i: usize) -> ArrayCube {
+	let inv = SYMMETRY_INVERSE[i];
+	let t = chain_transform( SYMMETRIES[i], chain_transform(cube.data, SYMMETRIES[inv]) );
+
+	ArrayCube { data: t }
+}
+
+// ===== Tests =====
 
 #[cfg(test)]
 mod tests {
+    use std::str::FromStr;
+
     use crate::cube::arraycube::ArrayCube;
+    use arraycube::{chain_transform, get_symmetry, is_base, CubeData, CUBEDATA_LEN, NUM_SYMMETRIES, SYMMETRIES, SYMMETRY_INVERSE, TRANSFORM};
     use strum::*;
     use crate::cube::*;
 
@@ -367,9 +563,9 @@ mod tests {
     fn array_cube_turns1() {
         let mut cube = ArrayCube::default();
 		// Little scramble
-		cube.apply_turns( parse_turns("L R' U2 F D' R U2 R'") );
+		cube.apply_turns( parse_turns("L R' U2 F D' R U2 R'").unwrap() );
 
-		for side in Turntype::iter() {
+		for side in TurnType::iter() {
 			let turn_n = Turn { side, wise: TurnWise::Clockwise };
 			let turn_c = Turn { side, wise: TurnWise::CounterClockwise };
 			let turn2 = Turn { side, wise: TurnWise::Double };
@@ -405,7 +601,7 @@ mod tests {
 		let bef = cube.clone();
 
 		// This sequence should turn back to the solved cube.
-		let turns = parse_turns("U2 D2 B2 F2 L2 R2 B2 F2 L2 R2 U2 D2");
+		let turns = parse_turns("U2 D2 B2 F2 L2 R2 B2 F2 L2 R2 U2 D2").unwrap();
 		cube.apply_turns(turns);
 
 		assert_eq!(cube, bef);
@@ -428,7 +624,7 @@ mod tests {
 			assert_eq!(o, 0);
 		}
 
-		cube.apply_turn( Turn::from("F") );
+		cube.apply_turn( Turn::from_str("F").unwrap() );
 
 		let mut cnt = 0;
 		for edge in Edge::iter() {
@@ -437,4 +633,66 @@ mod tests {
 		}
 		assert_eq!(cnt, 4);
     }
+
+	// ===== Transformation checks =====
+
+	/// Check whether given transformation is a permutation
+	fn check_permutation(perm: CubeData) -> bool {
+		let mut has_num = [false; CUBEDATA_LEN];
+
+		for i in 0..CUBEDATA_LEN {
+			let t = perm[i] as usize;
+			if has_num[t] { return false; }
+			has_num[t] = true;
+		}
+
+		true
+	}
+
+	#[test]
+	/// Test that every transformation permutation are actually permutations
+	fn permutation_test() {
+		for i in 0..NUM_TURNTYPES {
+			for j in 0..NUM_TURNWISES {
+				assert!( check_permutation(TRANSFORM[i][j]) );
+			}
+		}
+	}
+
+	#[test]
+	/// Test that every transformation permutation are actually permutations
+	fn symmetry_permutation_test() {
+		for i in 0..NUM_SYMMETRIES {
+			assert!( check_permutation( SYMMETRIES[i] ) );
+		}
+	}
+
+	#[test]
+	/// Test whether all symmetries have an inverse
+	fn symmetry_inverse_test() {
+		for i in 0..NUM_SYMMETRIES {
+			let inv = SYMMETRY_INVERSE[i];
+			if NUM_SYMMETRIES <= inv {
+				panic!("Symmetry {} has no inverse!", i);
+			}
+			let t = chain_transform(SYMMETRIES[i], SYMMETRIES[inv]);
+			assert!( is_base(t) );
+		}
+	}
+
+	#[test]
+	/// Each mirror should give legal cubes after
+	fn legal_symmetries() {
+		let cube = ArrayCube::from( parse_turns("R").unwrap() );
+		for i in 0..NUM_SYMMETRIES {
+			let c = get_symmetry(&cube, i);
+
+			for corner in Corner::iter() {
+				assert!(c.get_corner_at_pos(corner).is_some());
+			}
+			for edge in Edge::iter() {
+				assert!(c.get_edge_at_pos(edge).is_some());
+			}
+		}
+	}
 }

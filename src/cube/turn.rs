@@ -1,37 +1,28 @@
 use strum::EnumCount;
 
 use std::str::FromStr;
+use std::iter::Iterator;
 
 /// Total number of ways to adjust your turn
-pub const NUM_TURN_WISES: usize = 3;
+pub const NUM_TURNWISES: usize = 3;
 
 /// The sides or slices you can turn in a cube
 #[derive(Clone, Copy)]
 #[derive(PartialEq, Eq, Hash)]
 #[derive(Debug)]
-#[derive(strum::EnumIter, strum::EnumCount, strum::EnumString)]
+#[derive(strum::EnumIter, strum::EnumCount, strum::EnumString, strum::Display)]
 #[repr(u8)]
-pub enum Turntype {
+pub enum TurnType {
     U, // Up
 	D, // Down
     B, // Back
 	F, // Front
 	L, // Left
 	R, // Right
-
-	S, // The slice between front and back. Equivalent to F' * B
-	M, // The slice between left and right. Equivalent to R' * L
-	E, // The slice between up and down. Equivalent to U' * D
 }
 
 /// Total number of turntypes
-pub const NUM_TURNTYPES: usize = Turntype::COUNT;
-
-impl std::fmt::Display for Turntype {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-		write!(f, "{}", self.to_string())
-    }
-}
+pub const NUM_TURNTYPES: usize = TurnType::COUNT;
 
 /// You can either turn a side in (Counter-)Clockwise and Half turns, that's the wise of a turn.
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
@@ -53,14 +44,16 @@ impl std::fmt::Display for TurnWise {
     }
 }
 
+// ===== Turn struct =====
+
 /// An entire turn
 ///
-/// side: The side (or slice) to turn a cube
+/// side: The side/slice or similar to turn
 /// wise: See the definiton of TurnWise
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 #[derive(std::fmt::Debug)]
 pub struct Turn {
-    pub side: Turntype,
+    pub side: TurnType,
     pub wise: TurnWise,
 }
 
@@ -83,35 +76,40 @@ impl std::fmt::Display for Turn {
     }
 }
 
-impl From<&str> for Turn {
-    fn from(item: &str) -> Self {
+impl FromStr for Turn {
+	type Err = ();
+
+	fn from_str(s: &str) -> Result<Self, Self::Err> {
 		let substr = {
-			if item.ends_with("'") || item.ends_with("2") {
-				&item[0..item.len()-1]
+			if s.ends_with("'") || s.ends_with("2") {
+				&s[0..s.len()-1]
 			} else {
-				&item[0..item.len()]
+				&s[0..s.len()]
 			}
 		};
 
-		let side = Turntype::from_str( substr ).unwrap();
+		let side = match TurnType::from_str( substr ) {
+			Ok(res) => res,
+			Err(_) => return Err(()),
+		};
 
 		let wise = {
-			if item.ends_with("'") { TurnWise::CounterClockwise }
-			else if item.ends_with("2") { TurnWise::Double }
+			if s.ends_with("'") { TurnWise::CounterClockwise }
+			else if s.ends_with("2") { TurnWise::Double }
 			else { TurnWise::Clockwise }
 		};
 
-		Self { side, wise }
-    }
+		Ok( Self { side, wise } )
+	}
 }
 
-impl From<String> for Turn {
-    fn from(item: String) -> Self {
-		Self::from(item.as_str())
-    }
-}
-
-pub fn parse_turns<T>(string: T) -> std::vec::Vec<Turn>
+pub fn parse_turns<T>(string: T) -> Result<std::vec::Vec<Turn>,()>
 where T: Into<String> {
-    string.into().split_whitespace().map(Turn::from).collect()
+	let mut out = vec![];
+
+	for s in string.into().split_whitespace() {
+		out.push( Turn::from_str(s)? );
+	}
+
+	Ok(out)
 }

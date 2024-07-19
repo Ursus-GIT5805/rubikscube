@@ -1,6 +1,8 @@
 pub mod turn;
 pub mod arraycube;
+pub mod cubiecube;
 
+use strum::EnumCount;
 use turn::*;
 
 /// The dimension of the cube
@@ -11,13 +13,13 @@ pub const NUM_SIDES: usize = 6;
 
 type Side = u8;
 
-pub const UP: Side = 0;
-pub const DOWN: Side = 1;
-pub const BACK: Side = 2;
-pub const FRONT: Side = 3;
-pub const LEFT: Side = 4;
-pub const RIGHT: Side = 5;
-pub const UNKNOWN: Side = 6;
+pub const UP: u8 = 0;
+pub const DOWN: u8 = 1;
+pub const BACK: u8 = 2;
+pub const FRONT: u8 = 3;
+pub const LEFT: u8 = 4;
+pub const RIGHT: u8 = 5;
+pub const UNKNOWN: u8 = 6;
 
 /// Returns the ANSI-colorcode for the given side.
 pub fn get_ansii_color(side: Side) -> &'static str {
@@ -32,18 +34,31 @@ pub fn get_ansii_color(side: Side) -> &'static str {
     }
 }
 
-// ---
+// ===== Edge Piece =====
 
 /// All the different position names for an Edge
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Default)]
 #[derive(PartialEq, Eq)]
-#[derive(strum::EnumIter)]
+#[derive(strum::EnumIter, strum::EnumCount)]
 #[derive(Debug)]
 #[repr(usize)]
 pub enum Edge {
-    UF, UR, UB, UL,
-    DF, DR, DB, DL,
-    FR, BR, BL, FL,
+	#[default]
+    UF, UR, UB, UL, // up edges
+    DF, DR, DB, DL, // down edges
+    FR, BR, BL, FL, // ud-slice (middle edges)
+}
+
+pub const NUM_EDGES: usize = Edge::COUNT;
+
+#[derive(Clone, Copy)]
+#[derive(PartialEq, Eq)]
+#[derive(strum::EnumIter, strum::EnumCount)]
+#[derive(Debug)]
+#[repr(usize)]
+pub enum EdgeOrientation {
+	Normal,
+	Flipped,
 }
 
 impl Edge {
@@ -82,16 +97,32 @@ impl Edge {
     }
 }
 
+// ===== Corner Piece =====
+
 /// A corner piece
 /// Note that the name is carefully sorted!
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Default)]
 #[derive(PartialEq, Eq, Debug)]
-#[derive(strum::EnumIter)]
+#[derive(strum::EnumIter, strum::EnumString, strum::EnumCount)]
 #[allow(clippy::upper_case_acronyms)]
 #[repr(usize)]
 pub enum Corner {
+	#[default]
     URF, UBR, DLF, DFR, // DON'T CHANGE THE ORDER OF THE LETTERS!
     ULB, UFL, DRB, DBL,
+}
+
+pub const NUM_CORNERS: usize = Corner::COUNT;
+
+#[derive(Clone, Copy)]
+#[derive(PartialEq, Eq, Debug)]
+#[derive(strum::EnumIter, strum::EnumString, strum::EnumCount)]
+#[allow(clippy::upper_case_acronyms)]
+#[repr(usize)]
+pub enum CornerOrientation {
+	Normal,
+	Clockwisetwist,
+	AntiClockwisetwist,
 }
 
 impl Corner {
@@ -129,7 +160,6 @@ impl Corner {
 		Some(res)
     }
 }
-
 
 /// The RubiksCube trait.
 pub trait RubiksCube {
