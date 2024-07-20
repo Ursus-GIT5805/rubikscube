@@ -282,8 +282,6 @@ fn convert_combined_turns( turns: std::vec::Vec<Turn> )-> std::vec::Vec<Turn> {
 ///
 /// cube: The cube to solve
 pub fn solve(cube: ArrayCube) -> Option<Vec<Turn>> {
-    if !cube.is_solvable() { return None; }
-
     let solved = ArrayCube::default();
     let mut solve = cube.clone();
     let mut allowed_moves = TurnSet::new();

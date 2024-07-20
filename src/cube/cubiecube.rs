@@ -329,6 +329,12 @@ const fn pow_list<const N: usize>(base: usize) -> [usize; N] {
 	out
 }
 
+pub const CORNER_ORI: usize = 2187;
+pub const EDGE_ORI: usize = 2048;
+
+pub const CORNER_PERM: usize = 40320;
+pub const EDGE_PERM: usize = 479001600;
+
 impl CubieCube {
 	pub const fn new() -> Self {
 		CubieCube {
@@ -347,11 +353,58 @@ impl CubieCube {
 		self.edges[e as usize]
 	}
 
-	// ===== Coordinates =====
-	//
-	// Functions returning the coordinates of the cube.
-	//
-	// =======================
+	// ===== Coordinates functions =====
+
+	/// Set the corner orientation according to the given coordinate
+	pub fn set_corner_orientation(&mut self, coord: usize) {
+		#[cfg(debug_assertions)]
+		assert!( coord < CORNER_ORI );
+
+		let mut x = coord;
+		let mut parity = 0;
+
+		for i in 0..NUM_CORNERS-1 {
+			self.corners[i].1 = x as Ori % 3;
+			parity = (parity + x) % 3;
+			x /= 3;
+		}
+		self.corners[NUM_CORNERS-1].1 = (3-parity) as Ori % 3;
+	}
+
+	/// Set the edge orientation according to the given coordinate
+	pub fn set_edge_orientation(&mut self, coord: usize) {
+		#[cfg(debug_assertions)]
+		assert!( coord < EDGE_ORI );
+
+		for i in 0..(NUM_EDGES-1) {
+			self.edges[i].1 = (coord >> i) as Ori & 1;
+		}
+		self.edges[NUM_EDGES-1].1 = coord.count_ones() & 1 as Ori;
+	}
+
+	/// Set the corner permutation according to the given coordinate
+	pub fn set_corner_permutation(&mut self, coord: usize) {
+		#[cfg(debug_assertions)]
+		assert!( coord < CORNER_PERM );
+
+		let cs: Vec<Corner> = permute_vec(Corner::iter().collect(), coord);
+		for (i, corner) in cs.into_iter().enumerate() {
+			self.corners[i].0 = corner;
+		}
+	}
+
+	/// Set the edge permutation according to the given coordinate
+	pub fn set_edge_permutation(&mut self, coord: usize) {
+		#[cfg(debug_assertions)]
+		assert!( coord < EDGE_PERM );
+
+		let cs: Vec<Edge> = permute_vec(Edge::iter().collect(), coord);
+		for (i, edge) in cs.into_iter().enumerate() {
+			self.edges[i].0 = edge;
+		}
+	}
+
+	// ===== Coordinate get functions =====
 
 	/// Return the cube's corner orientation coordinate
 	pub fn get_corner_orientation_coord(&self) -> usize {
@@ -399,11 +452,19 @@ impl CubieCube {
 		map_permutation(&perm)
 	}
 
+	/// Return the cube's edge permutation as a coordinate
+	pub fn get_edge_permutation_coord(&self) -> usize {
+		let perm = self.edges.iter().map(|(e,_)| *e as usize).collect();
+		map_permutation(&perm)
+	}
+
 	/// Return the cube's coordinate of the non-udslice edges permutation.
-	pub fn get_edge8_perm_coord(&self) -> usize {
+	pub fn get_edge8_permutation_coord(&self) -> usize {
 		let perm = self.edges.iter().take(8).map(|(e,_)| *e as usize).collect();
 		map_permutation(&perm)
 	}
+
+	// ===== Utility functions =====
 
 	pub fn apply_transformation(&mut self, tc: CornerList, te: EdgeList) {
 		self.corners = chain_corners(self.corners, tc);
@@ -412,6 +473,29 @@ impl CubieCube {
 
 	pub fn is_solved(&self) -> bool {
 		self.edges == TE_BASE && self.corners == TC_BASE
+	}
+
+	pub fn is_solvable(&self) -> bool {
+		// The sum of the corner orientations have to be divisible by 3
+		let cori = self.corners.iter()
+			.map(|(_,o)| o)
+			.sum::<Ori>();
+		if cori % 3 != 0 { return false; }
+
+		// The sum of the edge orientations have to be divisible by 2
+		let cori = self.edges.iter()
+			.map(|(_,o)| o)
+			.sum::<Ori>();
+		if cori % 2 != 0 { return false; }
+
+		let cperm = self.get_corner_perm_coord();
+		let eperm = self.get_edge_permutation_coord();
+
+		let c_inv = count_permutation_inversions(cperm);
+		let e_inv = count_permutation_inversions(eperm);
+
+		// There must be an even number of swap throughout the permutations
+		(e_inv + c_inv) % 2 == 0
 	}
 }
 

@@ -3,7 +3,13 @@ use std::io::{Read, Result, Write};
 use lazy_static::lazy_static;
 use strum::IntoEnumIterator;
 
-use crate::{arraycube::*, cubiecube::{get_symmetry, get_symmetry_inv, CubieCube, Ori}, parse_turns, Corner, Edge, RubiksCube, Turn, NUM_CORNERS, NUM_EDGES, NUM_SIDES};
+use crate::{
+	arraycube::ArrayCube,
+	cubiecube::*,
+	parse_turns,
+	Edge, RubiksCube, Turn, NUM_EDGES
+};
+
 use crate::math::*;
 
 /// v[coord][i] is the coordinate when applying move i on coord
@@ -40,12 +46,9 @@ const EDGE_SLICE_INDEX: [usize; NUM_EDGES] = [
 	0, 0, 3, 3, 1, 1, 2, 2, 0, 1, 2, 3,
 ];
 
-const CORNER_ORI: usize = 2187;
-const EDGE_ORI: usize = 2048;
 const SYM_LEN: usize = 64430;
 const UDSLICE: usize = 495;
 
-const CORNER_PERM: usize = 40320;
 const EDGE8_PERM: usize = 40320;
 const SYM2_LEN: usize = 2768;
 
@@ -55,29 +58,15 @@ fn get_flipudslice_coord(cube: &CubieCube) -> usize {
 	udslice_coord * EDGE_ORI + edge
 }
 
-fn cube_from_edge_ori_idx(idx: usize) -> CubieCube {
+fn cube_from_edge_ori_idx(coord: usize) -> CubieCube {
 	let mut cube = CubieCube::new();
-
-	for i in 0..(NUM_EDGES-1) {
-		cube.edges[i].1 = (idx >> i) as Ori & 1;
-	}
-	cube.edges[NUM_EDGES-1].1 = idx.count_ones() % 2 as Ori;
-
+	cube.set_edge_orientation(coord);
 	cube
 }
 
-fn cube_from_corner_ori_idx(idx: usize) -> CubieCube {
-	let mut x = idx;
-	let mut parity = 0;
+fn cube_from_corner_ori_idx(coord: usize) -> CubieCube {
 	let mut cube = CubieCube::new();
-
-	for corner in Corner::iter().take(NUM_CORNERS-1) {
-		cube.corners[corner as usize] = (corner, x as Ori % 3);
-		parity = (parity + x) % 3;
-		x /= 3;
-	}
-	cube.corners[NUM_CORNERS-1].1 = (3-parity) as Ori % 3;
-
+	cube.set_corner_orientation(coord);
 	cube
 }
 
@@ -119,13 +108,6 @@ fn cube_from_udslice_edge_idx(idx: usize) -> CubieCube {
 	cube
 }
 
-fn permute_vec<T>(v: Vec<T>, k: usize) -> Vec<T>
-where T: Clone {
-	get_kth_perm(v.len(), k).into_iter().map(|i| {
-		v[i].clone()
-	}).collect()
-}
-
 fn cube_from_rlslice_idx(idx: usize) -> CubieCube {
 	let pos = idx / 24;
 	let ord = idx % 24;
@@ -142,25 +124,15 @@ fn cube_from_fbslice_idx(idx: usize) -> CubieCube {
 	cube_from_edge_pos_idx(slice, pos)
 }
 
-fn cube_from_corner_perm(idx: usize) -> CubieCube {
+fn cube_from_corner_perm(coord: usize) -> CubieCube {
 	let mut cube = CubieCube::new();
-
-	let cs: Vec<Corner> = permute_vec(Corner::iter().collect(), idx);
-	for (i, corner) in cs.into_iter().enumerate() {
-		cube.corners[i].0 = corner;
-	}
-
+	cube.set_corner_permutation(coord);
 	cube
 }
 
-fn cube_from_edge_perm(idx: usize, n: usize) -> CubieCube {
+fn cube_from_edge_perm(coord: usize) -> CubieCube {
 	let mut cube = CubieCube::new();
-
-	let cs: Vec<Edge> = permute_vec(Edge::iter().take(n).collect(), idx);
-	for (i, edge) in cs.into_iter().enumerate() {
-		cube.edges[i].0 = edge;
-	}
-
+	cube.set_edge_permutation(coord);
 	cube
 }
 
@@ -464,9 +436,6 @@ fn gen2_symmetrytoraw() -> Vec<u32> {
 	)
 }
 
-/// Tables for phase 2 ===
-
-
 fn gen2_symmovetable() -> SymMovetable {
 	fn get_corn_perm(cube: &CubieCube) -> usize {
 		cube.get_corner_perm_coord()
@@ -483,35 +452,29 @@ fn gen2_symmovetable() -> SymMovetable {
 
 fn gen2_edge_perm_movetable() -> Movetable {
 	fn get_phase2_edge_perm(cube: &CubieCube) -> usize {
-		cube.get_edge8_perm_coord()
-	}
-
-	fn from_coord(idx: usize) -> CubieCube {
-		cube_from_edge_perm(idx, 8)
+		cube.get_edge8_permutation_coord()
 	}
 
 	create_movetable(
 		EDGE8_PERM,
 		&turns_phase2,
 		get_phase2_edge_perm,
-		from_coord,
+		// we can actually do this because, the final 4 edges are never set
+		// TODO Still, make this more understandable and cleaner and the same for gen2_edge_perm_symtable
+		cube_from_edge_perm,
 	)
 }
 
 fn gen2_edge_perm_symtable() -> Symtable {
 	fn get_phase2_edge_perm(cube: &CubieCube) -> usize {
-		cube.get_edge8_perm_coord()
-	}
-
-	fn from_coord(idx: usize) -> CubieCube {
-		cube_from_edge_perm(idx, 8)
+		cube.get_edge8_permutation_coord()
 	}
 
 	create_symtable(
 		EDGE8_PERM,
 		16,
 		get_phase2_edge_perm,
-		from_coord,
+		cube_from_edge_perm,
 	)
 }
 
@@ -616,7 +579,7 @@ fn get_phase2_coord(cube: &CubieCube) -> usize {
 	fn corner_perm(cube: &CubieCube) -> usize { cube.get_corner_perm_coord() }
 
 	let (z, sym) = get_sym_class(&cube, &toraw2, corner_perm).unwrap();
-	let edge = cube.get_edge8_perm_coord();
+	let edge = cube.get_edge8_permutation_coord();
 
 	let y = edgesym[ edge ][sym] as usize;
 	y*SYM2_LEN + z

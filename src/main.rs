@@ -1,6 +1,8 @@
 use std::str::FromStr;
 
 use clap::Parser;
+use cubiecube::{CubieCube, CORNER_ORI, CORNER_PERM, EDGE_ORI, EDGE_PERM};
+use math::count_permutation_inversions;
 use rand::prelude::*;
 use strum::{Display, IntoEnumIterator};
 
@@ -96,23 +98,33 @@ fn main() -> std::io::Result<()> {
     // Shuffles the cube randomly
     if args.random {
 		let mut rng = rand::thread_rng();
+		let mut cubie = CubieCube::new();
 
-		const MOVES: usize = 15;
+		// Generate a cubie by setting random coordinates
+		cubie.set_edge_orientation( rng.gen::<usize>() % EDGE_ORI );
+		cubie.set_corner_orientation( rng.gen::<usize>() % CORNER_ORI );
 
-		let moves: std::vec::Vec<TurnType> = TurnType::iter().collect();
-		let wises: std::vec::Vec<TurnWise> = TurnWise::iter().collect();
+		let cperm = rng.gen::<usize>() % CORNER_PERM;
+		let mut eperm = rng.gen::<usize>() % EDGE_PERM;
 
-		for _ in 0..MOVES {
-			let idx1: usize = rng.gen::<usize>() % moves.len();
-			let idx2: usize = rng.gen::<usize>() % wises.len();
+		// The number of swaps have to be even
+		let inv = count_permutation_inversions(cperm);
+		let inv2 = count_permutation_inversions(eperm);
 
-			let turn = Turn {
-				side: moves[idx1],
-				wise: wises[idx2],
-			};
-
-			cube.apply_turn(turn);
+		if (inv+inv2) % 2 == 1 {
+			// Using the factioradic number system, we can simply change
+			// the final digit by one, which is a change by (NUM_EDGES-1)!
+			if eperm / math::FAC[NUM_EDGES-1] > 0 {
+				eperm -= math::FAC[NUM_EDGES-1];
+			} else {
+				eperm += math::FAC[NUM_EDGES-1];
+			}
 		}
+
+		cubie.set_corner_permutation(cperm);
+		cubie.set_edge_permutation(eperm);
+
+		cube = cubie.into();
     }
 
     // Parses a cube out of the cube string
@@ -134,11 +146,23 @@ fn main() -> std::io::Result<()> {
     // Use the interactive mode
     if args.interactive {
 		let res = interactive::interactive_mode();
-		cube = ArrayCube::from_str(&res).unwrap();
+		match ArrayCube::from_str(&res) {
+			Ok(res) => cube = res,
+			Err(_) => {
+				eprintln!("Given cube is illegal!");
+				std::process::exit(1);
+			}
+		}
     }
 
     // Solve the cube and only outputs the sequence
     if args.solve {
+		let cubie: CubieCube = cube.clone().into();
+		if !cubie.is_solvable() {
+			eprintln!("The given cube is not solvable!");
+			std::process::exit(1);
+		}
+
 		let seq = match args.algorithm {
 			SolveAlgorithm::THISTLEWAITE => solve::thistlewhaite::solve(cube),
 			SolveAlgorithm::KOCIEMBA => solve::kociemba::solve(cube),

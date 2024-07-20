@@ -173,7 +173,10 @@ impl FromStr for ArrayCube {
 		}
 
 		for corner in Corner::iter() {
-			let (c,o) = cube.get_corner_at_pos(corner).unwrap();
+			let (c,o) = match cube.get_corner_at_pos(corner) {
+				Some(v) => v,
+				None => return Err(()),
+			};
 			let (i1,i2,i3) = corner_to_indices(corner);
 
 			let (c1,c2,c3) = corner_to_indices(c);
@@ -184,7 +187,10 @@ impl FromStr for ArrayCube {
 		}
 
 		for pos in Edge::iter() {
-			let (e, o) = cube.get_edge_at_pos(pos).unwrap();
+			let (e,o) = match cube.get_edge_at_pos(pos) {
+				Some(v) => v,
+				None => return Err(()),
+			};
 
 			// The 2 indices to write to
 			let (i1,i2) = edge_to_indices(pos);
@@ -380,43 +386,6 @@ impl ArrayCube {
 		};
 
 		Some( (edge, ori as usize) )
-    }
-
-    // TODO, this functions may be incomplete! Illegal configurations may be called legal
-    /// Check whether the cube configurtion is solvable.
-    pub fn is_solvable(&self) -> bool {
-		let mut ori: isize = 0;
-
-		// Only an even number of edge can be swapped, if it's odd, the cube is not legal
-		for edge in Edge::iter() {
-			let o = match self.get_edge_at_pos(edge) {
-				Some((_,o)) => o as isize,
-				None => return false,
-			};
-			ori ^= o;
-		}
-		if (ori & 1) != 0 { return false; }
-
-
-		// The sum of all the orienation has to be a multiple of 3
-		ori = 0;
-		for corner in Corner::iter() {
-			let o = match self.get_corner_at_pos(corner) {
-				Some((_,o)) => o as isize,
-				None => return false,
-			};
-
-			ori += o;
-		}
-		if (ori % 3) != 0 { return false; }
-
-		let mut face_cnt = [0usize; NUM_SIDES];
-		for ele in self.data { face_cnt[ele as usize / 9] += 1 }
-		for cnt in face_cnt {
-			if cnt != CUBE_DIM*CUBE_DIM { return false; }
-		}
-
-		true
     }
 
 	pub fn is_solved(&self) -> bool {
