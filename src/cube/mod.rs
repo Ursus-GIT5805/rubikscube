@@ -1,6 +1,6 @@
-pub mod turn;
 pub mod arraycube;
 pub mod cubiecube;
+pub mod turn;
 
 use strum::EnumCount;
 use turn::*;
@@ -19,42 +19,37 @@ pub const BACK: u8 = 2;
 pub const FRONT: u8 = 3;
 pub const LEFT: u8 = 4;
 pub const RIGHT: u8 = 5;
-pub const UNKNOWN: u8 = 6;
+// pub const UNKNOWN: u8 = 6;
 
 /// Returns the ANSI-colorcode for the given side.
 pub fn get_ansii_color(side: Side) -> &'static str {
-    match side {
-		UP    => "\x1b[00m", // White
-		DOWN  => "\x1b[93m", // Yellow
-		BACK  => "\x1b[32m", // Green
+	match side {
+		UP => "\x1b[00m",    // White
+		DOWN => "\x1b[93m",  // Yellow
+		BACK => "\x1b[32m",  // Green
 		FRONT => "\x1b[34m", // Blue
-		LEFT  => "\x1b[31m", // Red
+		LEFT => "\x1b[31m",  // Red
 		RIGHT => "\x1b[33m", // Orange
-		_ => "\x1b[00m", // Reset
-    }
+		_ => "\x1b[00m",     // Reset
+	}
 }
 
 // ===== Edge Piece =====
 
 /// All the different position names for an Edge
-#[derive(Clone, Copy, Default)]
-#[derive(PartialEq, Eq)]
-#[derive(strum::EnumIter, strum::EnumCount)]
-#[derive(Debug)]
+#[derive(Clone, Copy, Default, PartialEq, Eq, strum::EnumIter, strum::EnumCount, Debug)]
 #[repr(usize)]
+#[rustfmt::skip]
 pub enum Edge {
 	#[default]
-    UF, UR, UB, UL, // up edges
-    DF, DR, DB, DL, // down edges
-    FR, BR, BL, FL, // ud-slice (middle edges)
+	UF, UR, UB, UL, // up edges
+	DF, DR, DB, DL, // down edges
+	FR, BR, BL, FL, // ud-slice (middle edges)
 }
 
 pub const NUM_EDGES: usize = Edge::COUNT;
 
-#[derive(Clone, Copy)]
-#[derive(PartialEq, Eq)]
-#[derive(strum::EnumIter, strum::EnumCount)]
-#[derive(Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, strum::EnumIter, strum::EnumCount, Debug)]
 #[repr(usize)]
 pub enum EdgeOrientation {
 	Normal,
@@ -62,9 +57,9 @@ pub enum EdgeOrientation {
 }
 
 impl Edge {
-    /// Parse the edge from the given colors.
-    /// Returns None if there exist no Edge with the given colors.
-    pub fn parse_edge(col: [Side; 2]) -> Option<Self> {
+	/// Parse the edge from the given colors.
+	/// Returns None if there exist no Edge with the given colors.
+	pub fn parse_edge(col: [Side; 2]) -> Option<Self> {
 		// Create a hash out of the color
 		let hash = {
 			let mut m: usize = 0;
@@ -94,29 +89,30 @@ impl Edge {
 		};
 
 		Some(res)
-    }
+	}
 }
 
 // ===== Corner Piece =====
 
 /// A corner piece
 /// Note that the name is carefully sorted!
-#[derive(Clone, Copy, Default)]
-#[derive(PartialEq, Eq, Debug)]
-#[derive(strum::EnumIter, strum::EnumString, strum::EnumCount)]
+#[derive(
+	Clone, Copy, Default, PartialEq, Eq, Debug, strum::EnumIter, strum::EnumString, strum::EnumCount,
+)]
 #[allow(clippy::upper_case_acronyms)]
 #[repr(usize)]
+#[rustfmt::skip]
 pub enum Corner {
 	#[default]
-    URF, UBR, DLF, DFR, // DON'T CHANGE THE ORDER OF THE LETTERS!
-    ULB, UFL, DRB, DBL,
+	URF, UBR, DLF, DFR, // DON'T CHANGE THE ORDER OF THE LETTERS!
+	ULB, UFL, DRB, DBL,
 }
 
 pub const NUM_CORNERS: usize = Corner::COUNT;
 
-#[derive(Clone, Copy)]
-#[derive(PartialEq, Eq, Debug)]
-#[derive(strum::EnumIter, strum::EnumString, strum::EnumCount)]
+#[derive(
+	Clone, Copy, PartialEq, Eq, Debug, strum::EnumIter, strum::EnumString, strum::EnumCount,
+)]
 #[allow(clippy::upper_case_acronyms)]
 #[repr(usize)]
 pub enum CornerOrientation {
@@ -126,9 +122,9 @@ pub enum CornerOrientation {
 }
 
 impl Corner {
-    /// Parse the corner from the given colors.
-    /// If no corner with the given colors exist, the function returns None.
-    pub fn parse_corner(col: [Side; 3]) -> Option<Self> {
+	/// Parse the corner from the given colors.
+	/// If no corner with the given colors exist, the function returns None.
+	pub fn parse_corner(col: [Side; 3]) -> Option<Self> {
 		// Create a hash
 		let hash = {
 			let mut m: usize = 0;
@@ -158,10 +154,10 @@ impl Corner {
 		};
 
 		Some(res)
-    }
+	}
 }
 
 /// The RubiksCube trait.
 pub trait RubiksCube {
-    fn apply_turn(&mut self, turn: Turn);
+	fn apply_turn(&mut self, turn: Turn);
 }

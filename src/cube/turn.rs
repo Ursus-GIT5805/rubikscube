@@ -1,21 +1,29 @@
 use strum::EnumCount;
 
-use std::str::FromStr;
 use std::iter::Iterator;
+use std::str::FromStr;
 
 /// Total number of ways to adjust your turn
 pub const NUM_TURNWISES: usize = 3;
 
 /// The sides or slices you can turn in a cube
-#[derive(Clone, Copy)]
-#[derive(PartialEq, Eq, Hash)]
-#[derive(Debug)]
-#[derive(strum::EnumIter, strum::EnumCount, strum::EnumString, strum::Display)]
+#[derive(
+	Clone,
+	Copy,
+	PartialEq,
+	Eq,
+	Hash,
+	Debug,
+	strum::EnumIter,
+	strum::EnumCount,
+	strum::EnumString,
+	strum::Display,
+)]
 #[repr(u8)]
 pub enum TurnType {
-    U, // Up
+	U, // Up
 	D, // Down
-    B, // Back
+	B, // Back
 	F, // Front
 	L, // Left
 	R, // Right
@@ -25,23 +33,21 @@ pub enum TurnType {
 pub const NUM_TURNTYPES: usize = TurnType::COUNT;
 
 /// You can either turn a side in (Counter-)Clockwise and Half turns, that's the wise of a turn.
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
-#[derive(strum::EnumIter)]
-#[derive(std::fmt::Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, strum::EnumIter, std::fmt::Debug)]
 pub enum TurnWise {
-    Clockwise,
-    Double,
-    CounterClockwise,
+	Clockwise,
+	Double,
+	CounterClockwise,
 }
 
 impl std::fmt::Display for TurnWise {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
 		match self {
 			TurnWise::Clockwise => write!(f, ""),
 			TurnWise::CounterClockwise => write!(f, "'"),
 			TurnWise::Double => write!(f, "2"),
 		}
-    }
+	}
 }
 
 // ===== Turn struct =====
@@ -50,30 +56,29 @@ impl std::fmt::Display for TurnWise {
 ///
 /// side: The side/slice or similar to turn
 /// wise: See the definiton of TurnWise
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
-#[derive(std::fmt::Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, std::fmt::Debug)]
 pub struct Turn {
-    pub side: TurnType,
-    pub wise: TurnWise,
+	pub side: TurnType,
+	pub wise: TurnWise,
 }
 
 impl Turn {
-    /// Turn itself to the turn, which negates itself.
-    /// In terms of set theory, convert itself the inverse operation of the current one.
-    pub fn invert(&mut self) {
+	/// Turn itself to the turn, which negates itself.
+	/// In terms of set theory, convert itself the inverse operation of the current one.
+	pub fn invert(&mut self) {
 		match self.wise {
 			TurnWise::CounterClockwise => self.wise = TurnWise::Clockwise,
 			TurnWise::Clockwise => self.wise = TurnWise::CounterClockwise,
-			_ => {},
+			_ => {}
 		}
-    }
+	}
 }
 
 impl std::fmt::Display for Turn {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
 		self.side.fmt(f)?;
 		self.wise.fmt(f)
-    }
+	}
 }
 
 impl FromStr for Turn {
@@ -82,34 +87,40 @@ impl FromStr for Turn {
 	fn from_str(s: &str) -> Result<Self, Self::Err> {
 		let substr = {
 			if s.ends_with("'") || s.ends_with("2") {
-				&s[0..s.len()-1]
+				&s[0..s.len() - 1]
 			} else {
 				&s[0..s.len()]
 			}
 		};
 
-		let side = match TurnType::from_str( substr ) {
+		let side = match TurnType::from_str(substr) {
 			Ok(res) => res,
 			Err(_) => return Err(()),
 		};
 
 		let wise = {
-			if s.ends_with("'") { TurnWise::CounterClockwise }
-			else if s.ends_with("2") { TurnWise::Double }
-			else { TurnWise::Clockwise }
+			if s.ends_with("'") {
+				TurnWise::CounterClockwise
+			} else if s.ends_with("2") {
+				TurnWise::Double
+			} else {
+				TurnWise::Clockwise
+			}
 		};
 
-		Ok( Self { side, wise } )
+		Ok(Self { side, wise })
 	}
 }
 
-pub fn parse_turns<T>(string: T) -> Result<std::vec::Vec<Turn>,()>
-where T: Into<String> {
-	let mut out = vec![];
+pub fn parse_turns<T>(item: T) -> Result<Vec<Turn>, ()>
+where
+	T: Into<String>,
+{
+	let out: Result<_, _> = item
+		.into()
+		.split_whitespace()
+		.map(|s| Turn::from_str(s))
+		.collect();
 
-	for s in string.into().split_whitespace() {
-		out.push( Turn::from_str(s)? );
-	}
-
-	Ok(out)
+	Ok(out?)
 }

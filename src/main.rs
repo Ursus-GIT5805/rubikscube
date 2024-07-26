@@ -8,25 +8,19 @@ use strum::{Display, IntoEnumIterator};
 
 mod cube;
 mod interactive;
-mod solve;
 pub mod math;
+mod solve;
 
-use cube::{
-    *,
-    turn::*,
-    arraycube::ArrayCube,
-};
+use cube::{arraycube::ArrayCube, turn::*, *};
 
-#[derive(PartialEq, Eq)]
-#[derive(Default, Debug)]
-#[derive(Display)]
-#[derive(Copy, Clone)]
-#[derive(strum::EnumString, strum::EnumIter)]
+#[derive(
+	PartialEq, Eq, Default, Debug, Display, Copy, Clone, strum::EnumString, strum::EnumIter,
+)]
 #[repr(usize)]
 enum SolveAlgorithm {
 	#[default]
-	KOCIEMBA,
-	THISTLEWAITE,
+	Kociemba,
+	Thistlewaite,
 }
 
 // Using clap for parsing arguments. For more infos about clap, see official docs.
@@ -34,29 +28,29 @@ enum SolveAlgorithm {
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
-    /// Enter the cube interactively
-    #[arg(short, long, default_value_t = false)]
-    interactive: bool,
+	/// Enter the cube interactively
+	#[arg(short, long, default_value_t = false)]
+	interactive: bool,
 
-    /// Use a sequence to apply on the solved cube
-    #[arg(short, default_value_t = String::new())]
-    sequence: String,
+	/// Use a sequence to apply on the solved cube
+	#[arg(short, default_value_t = String::new())]
+	sequence: String,
 
-    /// Set the cube from a string (the same format as when you output the cube via the "-c"-flag)
-    #[arg(long, default_value_t = String::new())]
-    set: String,
+	/// Set the cube from a string (the same format as when you output the cube via the "-c"-flag)
+	#[arg(long, default_value_t = String::new())]
+	set: String,
 
-    /// Solve the cube (the output is a sequence)
-    #[arg(long, default_value_t = false)]
-    solve: bool,
+	/// Solve the cube (the output is a sequence)
+	#[arg(long, default_value_t = false)]
+	solve: bool,
 
-    /// Output the cube as a string rather than colored
-    #[arg(short, long, default_value_t = false)]
-    char_print: bool,
+	/// Output the cube as a string rather than colored
+	#[arg(short, long, default_value_t = false)]
+	char_print: bool,
 
-    /// Scramble the cube
-    #[arg(short, long, default_value_t = false)]
-    random: bool,
+	/// Scramble the cube
+	#[arg(short, long, default_value_t = false)]
+	random: bool,
 
 	/// Specify the algorithm used for solving
 	#[arg(long, default_value_t = SolveAlgorithm::default())]
@@ -66,10 +60,10 @@ struct Args {
 	#[arg(long, default_value_t = false)]
 	list_algorithm: bool,
 
-    /// Print the output to a file rather to the stdout
-    /// If you want to read the output of the interactive mode, you should use this.
-    #[arg(short, long, default_value_t = String::new())]
-    output: String,
+	/// Print the output to a file rather to the stdout
+	/// If you want to read the output of the interactive mode, you should use this.
+	#[arg(short, long, default_value_t = String::new())]
+	output: String,
 }
 
 fn main() -> std::io::Result<()> {
@@ -79,13 +73,13 @@ fn main() -> std::io::Result<()> {
 	}
 
 	let args = Args::parse();
-    // Whether to redirect it to the stout or a file
-    let mut out: Box< dyn std::io::Write > = if args.output.is_empty() {
-		Box::new( std::io::stdout() )
-    } else {
-		Box::new( std::fs::File::create( args.output )? )
-    };
-    let mut cube = ArrayCube::default();
+	// Whether to redirect it to the stout or a file
+	let mut out: Box<dyn std::io::Write> = if args.output.is_empty() {
+		Box::new(std::io::stdout())
+	} else {
+		Box::new(std::fs::File::create(args.output)?)
+	};
+	let mut cube = ArrayCube::default();
 
 	// List the algorithm and exit
 	if args.list_algorithm {
@@ -95,14 +89,14 @@ fn main() -> std::io::Result<()> {
 		std::process::exit(0);
 	}
 
-    // Shuffles the cube randomly
-    if args.random {
+	// Shuffles the cube randomly
+	if args.random {
 		let mut rng = rand::thread_rng();
 		let mut cubie = CubieCube::new();
 
 		// Generate a cubie by setting random coordinates
-		cubie.set_edge_orientation( rng.gen::<usize>() % EDGE_ORI );
-		cubie.set_corner_orientation( rng.gen::<usize>() % CORNER_ORI );
+		cubie.set_edge_orientation(rng.gen::<usize>() % EDGE_ORI);
+		cubie.set_corner_orientation(rng.gen::<usize>() % CORNER_ORI);
 
 		let cperm = rng.gen::<usize>() % CORNER_PERM;
 		let mut eperm = rng.gen::<usize>() % EDGE_PERM;
@@ -111,13 +105,13 @@ fn main() -> std::io::Result<()> {
 		let inv = count_permutation_inversions(cperm);
 		let inv2 = count_permutation_inversions(eperm);
 
-		if (inv+inv2) % 2 == 1 {
+		if (inv + inv2) % 2 == 1 {
 			// Using the factioradic number system, we can simply change
 			// the final digit by one, which is a change by (NUM_EDGES-1)!
-			if eperm / math::FAC[NUM_EDGES-1] > 0 {
-				eperm -= math::FAC[NUM_EDGES-1];
+			if eperm / math::FAC[NUM_EDGES - 1] > 0 {
+				eperm -= math::FAC[NUM_EDGES - 1];
 			} else {
-				eperm += math::FAC[NUM_EDGES-1];
+				eperm += math::FAC[NUM_EDGES - 1];
 			}
 		}
 
@@ -125,26 +119,29 @@ fn main() -> std::io::Result<()> {
 		cubie.set_edge_permutation(eperm);
 
 		cube = cubie.into();
-    }
+	}
 
-    // Parses a cube out of the cube string
-    const DATA_LEN: usize = NUM_SIDES*CUBE_DIM*CUBE_DIM;
-    match args.set.len() {
-		0 => {},
+	// Parses a cube out of the cube string
+	const DATA_LEN: usize = NUM_SIDES * CUBE_DIM * CUBE_DIM;
+	match args.set.len() {
+		0 => {}
 		DATA_LEN => {
-			cube = ArrayCube::from_str( args.set.as_str() ).unwrap();
-		},
+			cube = ArrayCube::from_str(args.set.as_str()).unwrap();
+		}
 		_ => {
-			eprintln!("The size of the cube string is incorrect. Set size should be {}", DATA_LEN);
+			eprintln!(
+				"The size of the cube string is incorrect. Set size should be {}",
+				DATA_LEN
+			);
 			std::process::exit(1);
-		},
-    }
+		}
+	}
 
-    // Applies turns from args
-    cube.apply_turns( parse_turns(args.sequence).unwrap() );
+	// Applies turns from args
+	cube.apply_turns(parse_turns(args.sequence).unwrap());
 
-    // Use the interactive mode
-    if args.interactive {
+	// Use the interactive mode
+	if args.interactive {
 		let res = interactive::interactive_mode();
 		match ArrayCube::from_str(&res) {
 			Ok(res) => cube = res,
@@ -153,19 +150,22 @@ fn main() -> std::io::Result<()> {
 				std::process::exit(1);
 			}
 		}
-    }
+	}
 
-    // Solve the cube and only outputs the sequence
-    if args.solve {
-		let cubie: CubieCube = cube.clone().into();
+	// Solve the cube and only outputs the sequence
+	if args.solve {
+		let cubie: CubieCube = cube
+			.clone()
+			.try_into()
+			.expect("The given cube couldn't be converted properly!");
 		if !cubie.is_solvable() {
 			eprintln!("The given cube is not solvable!");
 			std::process::exit(1);
 		}
 
 		let seq = match args.algorithm {
-			SolveAlgorithm::THISTLEWAITE => solve::thistlewhaite::solve(cube),
-			SolveAlgorithm::KOCIEMBA => solve::kociemba::solve(cube),
+			SolveAlgorithm::Thistlewaite => solve::thistlewhaite::solve(cube),
+			SolveAlgorithm::Kociemba => solve::kociemba::solve(cube),
 		};
 
 		match seq {
@@ -175,21 +175,21 @@ fn main() -> std::io::Result<()> {
 				}
 				writeln!(out.as_mut())?;
 				std::process::exit(0);
-			},
+			}
 			None => {
 				eprintln!("Could not solve given Rubik's Cube!");
 				std::process::exit(1);
 			}
 		}
-    }
+	}
 
-    // Print the resulting cube (either as a string or with colors)
-    if args.char_print {
+	// Print the resulting cube (either as a string or with colors)
+	if args.char_print {
 		let s: String = cube.into();
 		writeln!(out.as_mut(), "{}", s)?;
-    } else {
+	} else {
 		cube.print();
-    }
+	}
 
-    Ok(())
+	Ok(())
 }

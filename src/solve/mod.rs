@@ -1,2 +1,2 @@
-pub mod thistlewhaite;
 pub mod kociemba;
+pub mod thistlewhaite;
