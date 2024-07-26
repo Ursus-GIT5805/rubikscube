@@ -135,10 +135,7 @@ pub fn interactive_mode() -> String {
 	Be warned that you don't see beautiful code here.
 	 */
 
-	let mut data = [0u8; 54];
-	for i in 0..54 {
-		data[i] = i as u8 / 9;
-	}
+	let mut data: Vec<_> = (0..54).map(|i| i / 9).collect();
 	let mut idx = 0usize;
 
 	let win = initscr();
@@ -226,9 +223,7 @@ pub fn interactive_mode() -> String {
 						}
 					}
 					'C' => {
-						for i in 0..54 {
-							data[i] = i as u8 / 9;
-						}
+						data = (0..54).map(|i| i / 9).collect();
 					}
 					'Q' => break,
 					_ => {}
@@ -246,9 +241,9 @@ pub fn interactive_mode() -> String {
 
 	endwin();
 
-	for i in 0..54 {
-		data[i] += 'a' as u8;
+	for ele in data.iter_mut() {
+		*ele += b'a';
 	}
 
-	String::from_utf8(data.into()).unwrap()
+	String::from_utf8(data).unwrap()
 }

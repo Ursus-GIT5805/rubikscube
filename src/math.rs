@@ -49,7 +49,7 @@ where
 ///
 /// Runtime: O(n log n)
 /// Additional Memory: O(n)
-pub fn map_permutation(perm: &Vec<usize>) -> usize {
+pub fn map_permutation(perm: &[usize]) -> usize {
 	let n = perm.len();
 
 	// Fenwicktree
@@ -110,7 +110,8 @@ pub fn get_kth_perm(n: usize, k: usize) -> Vec<usize> {
 ///
 /// Runtime: O(n)
 /// Additional Memory O(1)
-pub fn map_nck(v: &Vec<bool>) -> usize {
+
+pub fn map_nck(v: &[bool]) -> usize {
 	let mut x = 0;
 	let mut k: usize = 0;
 

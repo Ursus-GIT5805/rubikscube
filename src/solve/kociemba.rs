@@ -18,11 +18,15 @@ type Symtable = Vec<Vec<u16>>;
 /// where sym: Is the sym-th symmetry of the to raw coordinate of symcoord
 type SymMovetable = Vec<Vec<(u16, u8)>>;
 
+/// A mapper vector where v[i] is the raw coordinate of the
+/// representant cube of symmetry class i
+type SymToRawTable = Vec<u32>;
+
 lazy_static! {
 	static ref cornersym: Symtable = gen_corner_ori_symtable();
 	static ref edgesym: Symtable = gen2_edge_perm_symtable();
-	static ref toraw: Vec<u32> = gen_symmetrytoraw();
-	static ref toraw2: Vec<u32> = gen2_symmetrytoraw();
+	static ref toraw: SymToRawTable = gen_symmetrytoraw();
+	static ref toraw2: SymToRawTable = gen2_symmetrytoraw();
 	static ref h1: Vec<u8> = gen_phase1_heuristics();
 	static ref h2: Vec<u8> = gen_phase2_heuristics();
 	static ref turns_phase1: Vec<Turn> =
@@ -67,7 +71,7 @@ fn cube_from_edge_pos_idx(edges: Vec<Edge>, idx: usize) -> CubieCube {
 
 	let mut m = 0;
 	let mut n = 0;
-	let nonmiddle: Vec<_> = Edge::iter().filter(|e| !edges.contains(&e)).collect();
+	let nonmiddle: Vec<_> = Edge::iter().filter(|e| !edges.contains(e)).collect();
 
 	for (i, chosen) in chosen.into_iter().enumerate() {
 		if chosen {
@@ -131,13 +135,13 @@ fn cube_from_edge_perm(coord: usize) -> CubieCube {
 /// Create a movetable
 fn create_movetable(
 	num_states: usize,
-	moves: &Vec<Turn>,
+	moves: &[Turn],
 	to_idx: fn(&CubieCube) -> usize,
 	from_idx: fn(usize) -> CubieCube,
 ) -> Movetable {
 	let mut out = vec![vec![0; moves.len()]; num_states];
 
-	for idx in 0..num_states {
+	for (idx, next) in out.iter_mut().enumerate() {
 		// Create cube from current idx
 		let cube = from_idx(idx);
 
@@ -149,7 +153,7 @@ fn create_movetable(
 				ncube
 			};
 
-			out[idx][i] = to_idx(&ncube) as u16;
+			next[i] = to_idx(&ncube) as u16;
 		}
 	}
 
@@ -161,7 +165,7 @@ fn create_symmetrytoraw_list(
 	num_symmetry_states: usize,
 	to_idx: fn(&CubieCube) -> usize,
 	from_idx: fn(usize) -> CubieCube,
-) -> Vec<u32> {
+) -> SymToRawTable {
 	let mut out = vec![0u32; num_symmetry_states];
 	let mut used = bit_set::BitSet::with_capacity(num_states);
 	let mut symidx = 0;
@@ -206,14 +210,14 @@ fn create_symtable(
 	to_idx: fn(&CubieCube) -> usize,
 	from_idx: fn(usize) -> CubieCube,
 ) -> Symtable {
-	let mut out = vec![vec![0; num_symmetries]; SYM_LEN];
+	let mut out = vec![vec![0; num_symmetries]; num_states];
 
-	for idx in 0..num_states {
+	for (idx, sym) in out.iter_mut().enumerate() {
 		let cube = from_idx(idx);
 
-		for sym in 0..num_symmetries {
-			let csym = get_symmetry_inv(&cube, sym);
-			out[idx][sym] = to_idx(&csym) as u16;
+		for (symidx, next) in sym.iter_mut().enumerate() {
+			let csym = get_symmetry_inv(&cube, symidx);
+			*next = to_idx(&csym) as u16;
 		}
 	}
 
@@ -221,10 +225,10 @@ fn create_symtable(
 }
 
 fn create_sym_movetable(
-	symtoraw: &Vec<u32>,
+	symtoraw: &SymToRawTable,
 	from_idx: fn(usize) -> CubieCube,
 	to_idx: fn(&CubieCube) -> usize,
-	moves: &Vec<Turn>,
+	moves: &[Turn],
 ) -> SymMovetable {
 	let n = symtoraw.len();
 	let mut out = vec![vec![(0, 0); moves.len()]; n];
@@ -251,11 +255,11 @@ fn create_sym_movetable(
 
 fn get_sym_class(
 	cube: &CubieCube,
-	symtoraw: &Vec<u32>,
+	symtoraw: &SymToRawTable,
 	to_idx: fn(&CubieCube) -> usize,
 ) -> Option<(usize, usize)> {
 	for sym in 0..48 {
-		let c = get_symmetry_inv(&cube, sym);
+		let c = get_symmetry_inv(cube, sym);
 		let dst = to_idx(&c) as u32;
 
 		if let Ok(k) = symtoraw.binary_search(&dst) {
@@ -266,7 +270,7 @@ fn get_sym_class(
 	None
 }
 
-fn gen_symmetrytoraw() -> Vec<u32> {
+fn gen_symmetrytoraw() -> SymToRawTable {
 	create_symmetrytoraw_list(
 		EDGE_ORI * UDSLICE,
 		SYM_LEN,
@@ -309,7 +313,7 @@ fn gen_phase1_heuristics() -> Vec<u8> {
 	const DATA_PATH: &str = "data/heuristics.dat";
 
 	if let Ok(h) = read_data::<{ SYM_LEN * CORNER_ORI }>(DATA_PATH) {
-		return h.into();
+		return h;
 	}
 
 	println!("Must generate heuristics for phase 1, please wait...");
@@ -354,9 +358,9 @@ fn gen_phase1_heuristics() -> Vec<u8> {
 				let udslice0 = idx / CORNER_ORI;
 
 				for i in 0..turns_phase1.len() {
-					let (udslice_coord, sym) = stable[udslice0 as usize][i];
+					let (udslice_coord, sym) = stable[udslice0][i];
 
-					let twist1 = ctable[twist0 as usize][i] as usize;
+					let twist1 = ctable[twist0][i] as usize;
 					let twist = cornersym[twist1][sym as usize];
 					let dst = twist as usize + udslice_coord as usize * CORNER_ORI;
 
@@ -394,9 +398,9 @@ fn gen_phase1_heuristics() -> Vec<u8> {
 				let udslice0 = idx / CORNER_ORI;
 
 				for i in 0..turns_phase1.len() {
-					let (udslice_coord, sym) = stable[udslice0 as usize][i];
+					let (udslice_coord, sym) = stable[udslice0][i];
 
-					let twist1 = ctable[twist0 as usize][i] as usize;
+					let twist1 = ctable[twist0][i] as usize;
 					let twist = cornersym[twist1][sym as usize];
 					let dst = twist as usize + udslice_coord as usize * CORNER_ORI;
 
@@ -420,7 +424,7 @@ fn gen_phase1_heuristics() -> Vec<u8> {
 
 // ===== Phase 2 =====
 
-fn gen2_symmetrytoraw() -> Vec<u32> {
+fn gen2_symmetrytoraw() -> SymToRawTable {
 	fn get_corner_perm(cube: &CubieCube) -> usize {
 		cube.get_corner_perm_coord()
 	}
@@ -467,7 +471,7 @@ fn gen2_edge_perm_symtable() -> Symtable {
 fn gen_phase2_heuristics() -> Vec<u8> {
 	const DATA_PATH: &str = "data/heuristics_phase2.dat";
 	if let Ok(data) = read_data::<{ SYM2_LEN * EDGE8_PERM }>(DATA_PATH) {
-		return data.into();
+		return data;
 	}
 	println!("Must generate heuristics for phase 2, please wait...");
 
@@ -510,9 +514,9 @@ fn gen_phase2_heuristics() -> Vec<u8> {
 				let corner0 = idx % SYM2_LEN;
 
 				for i in 0..10 {
-					let (corner, sym) = stable[corner0 as usize][i];
+					let (corner, sym) = stable[corner0][i];
 
-					let edge1 = etable[edge0 as usize][i] as usize;
+					let edge1 = etable[edge0][i] as usize;
 					let edge = edgesym[edge1][sym as usize];
 					let dst = edge as usize * SYM2_LEN + corner as usize;
 
@@ -550,9 +554,9 @@ fn gen_phase2_heuristics() -> Vec<u8> {
 				let corner0 = idx % SYM2_LEN;
 
 				for i in 0..turns_phase2.len() {
-					let (corner, sym) = stable[corner0 as usize][i];
+					let (corner, sym) = stable[corner0][i];
 
-					let edge1 = etable[edge0 as usize][i] as usize;
+					let edge1 = etable[edge0][i] as usize;
 					let edge = edgesym[edge1][sym as usize];
 					let dst = edge as usize * SYM2_LEN + corner as usize;
 
@@ -659,12 +663,12 @@ const SLICE_COORD: usize = 495 * 24;
 #[allow(dead_code)]
 fn gen_rlslice_sorted() -> Movetable {
 	fn get_rlslice_coord(cube: &CubieCube) -> usize {
-		let vec = cube
+		let vec: Vec<_> = cube
 			.edges
 			.iter()
 			.map(|(e, _)| rlslice.contains(e))
 			.collect();
-		let ord = cube
+		let ord: Vec<_> = cube
 			.edges
 			.iter()
 			.filter(|(e, _)| rlslice.contains(e))
@@ -684,12 +688,12 @@ fn gen_rlslice_sorted() -> Movetable {
 #[allow(dead_code)]
 fn gen_fbslice_sorted() -> Movetable {
 	fn get_fbslice_coord(cube: &CubieCube) -> usize {
-		let vec = cube
+		let vec: Vec<_> = cube
 			.edges
 			.iter()
 			.map(|(e, _)| fbslice.contains(e))
 			.collect();
-		let ord = cube
+		let ord: Vec<_> = cube
 			.edges
 			.iter()
 			.filter(|(e, _)| fbslice.contains(e))

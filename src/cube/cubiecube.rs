@@ -344,6 +344,12 @@ pub const EDGE_ORI: usize = 2048;
 pub const CORNER_PERM: usize = 40320;
 pub const EDGE_PERM: usize = 479001600;
 
+impl Default for CubieCube {
+	fn default() -> Self {
+		Self::new()
+	}
+}
+
 impl CubieCube {
 	pub const fn new() -> Self {
 		CubieCube {
@@ -449,7 +455,7 @@ impl CubieCube {
 	pub fn get_udslice_coord(&self) -> usize {
 		// https://kociemba.org/math/UDSliceCoord.htm
 		const UDSLICE: [Edge; 4] = [Edge::FR, Edge::BR, Edge::BL, Edge::FL];
-		let chosen = Edge::iter()
+		let chosen: Vec<_> = Edge::iter()
 			.map(|pos| {
 				let (e, _) = self.edge(pos);
 				UDSLICE.contains(&e)
@@ -461,19 +467,19 @@ impl CubieCube {
 
 	/// Return the cube's corner permutation as a coordinate.
 	pub fn get_corner_perm_coord(&self) -> usize {
-		let perm = self.corners.iter().map(|(c, _)| *c as usize).collect();
+		let perm: Vec<_> = self.corners.iter().map(|(c, _)| *c as usize).collect();
 		map_permutation(&perm)
 	}
 
 	/// Return the cube's edge permutation as a coordinate
 	pub fn get_edge_permutation_coord(&self) -> usize {
-		let perm = self.edges.iter().map(|(e, _)| *e as usize).collect();
+		let perm: Vec<_> = self.edges.iter().map(|(e, _)| *e as usize).collect();
 		map_permutation(&perm)
 	}
 
 	/// Return the cube's coordinate of the non-udslice edges permutation.
 	pub fn get_edge8_permutation_coord(&self) -> usize {
-		let perm = self
+		let perm: Vec<_> = self
 			.edges
 			.iter()
 			.take(8)
@@ -551,12 +557,12 @@ impl TryFrom<arraycube::ArrayCube> for CubieCube {
 	}
 }
 
-impl Into<arraycube::ArrayCube> for CubieCube {
-	fn into(self) -> arraycube::ArrayCube {
+impl From<CubieCube> for arraycube::ArrayCube {
+	fn from(val: CubieCube) -> Self {
 		let mut out = arraycube::ArrayCube::new();
 
 		for pos in Corner::iter() {
-			let (c, o) = self.corner(pos);
+			let (c, o) = val.corner(pos);
 
 			// The 3 indices to write to
 			let (i1, i2, i3) = corner_to_indices(pos);
@@ -570,7 +576,7 @@ impl Into<arraycube::ArrayCube> for CubieCube {
 		}
 
 		for pos in Edge::iter() {
-			let (e, o) = self.edge(pos);
+			let (e, o) = val.edge(pos);
 
 			// The 2 indices to write to
 			let (i1, i2) = edge_to_indices(pos);

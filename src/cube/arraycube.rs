@@ -160,7 +160,7 @@ impl FromStr for ArrayCube {
 		let mut cube = ArrayCube::new();
 
 		for (i, c) in s.as_bytes().iter().enumerate() {
-			cube.data[i] = (*c - 'a' as u8) * (CUBE_DIM * CUBE_DIM) as u8;
+			cube.data[i] = (*c - b'a') * (CUBE_DIM * CUBE_DIM) as u8;
 		}
 
 		for i in (4..54).step_by(9) {
@@ -201,12 +201,9 @@ impl FromStr for ArrayCube {
 	}
 }
 
-impl Into<String> for ArrayCube {
-	fn into(self) -> String {
-		self.data
-			.iter()
-			.map(|c| ((c / 9) + 'a' as u8) as char)
-			.collect()
+impl From<ArrayCube> for String {
+	fn from(val: ArrayCube) -> Self {
+		val.data.iter().map(|c| ((c / 9) + b'a') as char).collect()
 	}
 }
 
@@ -283,9 +280,7 @@ impl ArrayCube {
 	/// Print the cube in the *standard output* with ANSI-colors
 	pub fn print(&self) {
 		// Generate a space depending on the size of CUBE_DIM
-		let space: String = std::iter::repeat(" ")
-			.take(2 * CUBE_DIM + 1)
-			.collect::<String>();
+		let space: String = " ".repeat(2 * CUBE_DIM + 1);
 
 		const CD2: usize = CUBE_DIM * CUBE_DIM;
 		const fn help(side: Side, x: usize, y: usize) -> usize {

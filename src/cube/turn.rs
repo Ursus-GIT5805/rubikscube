@@ -86,7 +86,7 @@ impl FromStr for Turn {
 
 	fn from_str(s: &str) -> Result<Self, Self::Err> {
 		let substr = {
-			if s.ends_with("'") || s.ends_with("2") {
+			if s.ends_with('\'') || s.ends_with('2') {
 				&s[0..s.len() - 1]
 			} else {
 				&s[0..s.len()]
@@ -99,9 +99,9 @@ impl FromStr for Turn {
 		};
 
 		let wise = {
-			if s.ends_with("'") {
+			if s.ends_with('\'') {
 				TurnWise::CounterClockwise
-			} else if s.ends_with("2") {
+			} else if s.ends_with('2') {
 				TurnWise::Double
 			} else {
 				TurnWise::Clockwise
@@ -116,11 +116,5 @@ pub fn parse_turns<T>(item: T) -> Result<Vec<Turn>, ()>
 where
 	T: Into<String>,
 {
-	let out: Result<_, _> = item
-		.into()
-		.split_whitespace()
-		.map(|s| Turn::from_str(s))
-		.collect();
-
-	Ok(out?)
+	item.into().split_whitespace().map(Turn::from_str).collect()
 }
