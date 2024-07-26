@@ -17,13 +17,13 @@ use cube::{arraycube::ArrayCube, turn::*, *};
 	PartialEq, Eq, Default, Debug, Display, Copy, Clone, strum::EnumString, strum::EnumIter,
 )]
 #[repr(usize)]
+#[non_exhaustive]
 enum SolveAlgorithm {
 	#[default]
 	Kociemba,
 	Thistlewaite,
 }
 
-// Using clap for parsing arguments. For more infos about clap, see official docs.
 /// Rubik's Cube solver written in Rust
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -73,7 +73,7 @@ fn main() -> std::io::Result<()> {
 	}
 
 	let args = Args::parse();
-	// Whether to redirect it to the stout or a file
+	// Whether to redirect it to the stdout or a file
 	let mut out: Box<dyn std::io::Write> = if args.output.is_empty() {
 		Box::new(std::io::stdout())
 	} else {
@@ -86,10 +86,10 @@ fn main() -> std::io::Result<()> {
 		for algo in SolveAlgorithm::iter() {
 			writeln!(out, "{}", algo)?;
 		}
-		std::process::exit(0);
+		return Ok(());
 	}
 
-	// Shuffles the cube randomly
+	// Generate a random input cube
 	if args.random {
 		let mut rng = rand::thread_rng();
 		let mut cubie = CubieCube::new();
@@ -102,54 +102,44 @@ fn main() -> std::io::Result<()> {
 		let mut eperm = rng.gen::<usize>() % EDGE_PERM;
 
 		// The number of swaps have to be even
+		// Which is equivalent to: The number of inversions has to be even.
 		let inv = count_permutation_inversions(cperm);
 		let inv2 = count_permutation_inversions(eperm);
 
 		if (inv + inv2) % 2 == 1 {
-			// Using the factioradic number system, we can simply change
-			// the final digit by one, which is a change by (NUM_EDGES-1)!
-			if eperm / math::FAC[NUM_EDGES - 1] > 0 {
-				eperm -= math::FAC[NUM_EDGES - 1];
-			} else {
-				eperm += math::FAC[NUM_EDGES - 1];
-			}
+			// It can be proven that the sum over all factoradic digits
+			// are the total number of inversions.
+			// Using the factoradic number system, we can simply change
+			// the second digit by one, which is determined by the first bit.
+			eperm ^= 1;
 		}
 
 		cubie.set_corner_permutation(cperm);
 		cubie.set_edge_permutation(eperm);
 
+		#[cfg(debug_assertions)]
+		assert!(cubie.is_solvable());
+
 		cube = cubie.into();
 	}
 
 	// Parses a cube out of the cube string
-	const DATA_LEN: usize = NUM_SIDES * CUBE_DIM * CUBE_DIM;
-	match args.set.len() {
-		0 => {}
-		DATA_LEN => {
-			cube = ArrayCube::from_str(args.set.as_str()).unwrap();
-		}
-		_ => {
-			eprintln!(
-				"The size of the cube string is incorrect. Set size should be {}",
-				DATA_LEN
-			);
-			std::process::exit(1);
-		}
+	if !args.set.is_empty() {
+		cube =
+			ArrayCube::from_str(args.set.as_str()).expect("Given cube string couldn't be parsed!");
 	}
 
 	// Applies turns from args
-	cube.apply_turns(parse_turns(args.sequence).unwrap());
+	cube.apply_turns(
+		parse_turns(args.sequence).expect("Given input sequence could not be parsed!"),
+	);
 
 	// Use the interactive mode
 	if args.interactive {
+		// Run interactive mode
 		let res = interactive::interactive_mode();
-		match ArrayCube::from_str(&res) {
-			Ok(res) => cube = res,
-			Err(_) => {
-				eprintln!("Given cube is illegal!");
-				std::process::exit(1);
-			}
-		}
+		// Parse cube given from the interactive mode
+		cube = ArrayCube::from_str(&res).expect("Entered cube is illegal!");
 	}
 
 	// Solve the cube and only outputs the sequence
@@ -158,11 +148,12 @@ fn main() -> std::io::Result<()> {
 			.clone()
 			.try_into()
 			.expect("The given cube couldn't be converted properly!");
+
 		if !cubie.is_solvable() {
-			eprintln!("The given cube is not solvable!");
-			std::process::exit(1);
+			panic!("The given cube is not solvable!");
 		}
 
+		// Choose algorithm to use
 		let seq = match args.algorithm {
 			SolveAlgorithm::Thistlewaite => solve::thistlewhaite::solve(cube),
 			SolveAlgorithm::Kociemba => solve::kociemba::solve(cube),
@@ -174,11 +165,10 @@ fn main() -> std::io::Result<()> {
 					write!(out.as_mut(), "{} ", turn)?;
 				}
 				writeln!(out.as_mut())?;
-				std::process::exit(0);
+				return Ok(());
 			}
 			None => {
-				eprintln!("Could not solve given Rubik's Cube!");
-				std::process::exit(1);
+				panic!("Could not solve given Rubik's Cube!");
 			}
 		}
 	}
