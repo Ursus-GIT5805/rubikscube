@@ -13,7 +13,7 @@ type EdgeList = [(Edge, Ori); NUM_EDGES];
 /// https://kociemba.org/math/cubielevel.htm
 ///
 /// Uses more space than necessary, but gives
-/// very good insights about the cube's properties.
+/// very good insights about the cubes properties.
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub struct CubieCube {
 	pub corners: CornerList,
@@ -38,23 +38,23 @@ const TC_DOWN: CornerList = [
 ];
 #[rustfmt::skip]
 const TC_BACK: CornerList = [
-	(Corner::URF, 0), (Corner::DRB, 1), (Corner::DLF, 0), (Corner::DFR, 0),
-	(Corner::UBR, 2), (Corner::UFL, 0), (Corner::DBL, 2), (Corner::ULB, 1),
+	(Corner::URF, 0), (Corner::DRB, 2), (Corner::DLF, 0), (Corner::DFR, 0),
+	(Corner::UBR, 1), (Corner::UFL, 0), (Corner::DBL, 1), (Corner::ULB, 2),
 ];
 #[rustfmt::skip]
 const TC_FRONT: CornerList = [
-	(Corner::UFL, 2), (Corner::UBR, 0), (Corner::DFR, 2), (Corner::URF, 1),
-	(Corner::ULB, 0), (Corner::DLF, 1), (Corner::DRB, 0), (Corner::DBL, 0),
+	(Corner::UFL, 1), (Corner::UBR, 0), (Corner::DFR, 1), (Corner::URF, 2),
+	(Corner::ULB, 0), (Corner::DLF, 2), (Corner::DRB, 0), (Corner::DBL, 0),
 ];
 #[rustfmt::skip]
 const TC_LEFT: CornerList = [
-	(Corner::URF, 0), (Corner::UBR, 0), (Corner::UFL, 1), (Corner::DFR, 0),
-	(Corner::DBL, 1), (Corner::ULB, 2), (Corner::DRB, 0), (Corner::DLF, 2),
+	(Corner::URF, 0), (Corner::UBR, 0), (Corner::UFL, 2), (Corner::DFR, 0),
+	(Corner::DBL, 2), (Corner::ULB, 1), (Corner::DRB, 0), (Corner::DLF, 1),
 ];
 #[rustfmt::skip]
 const TC_RIGHT: CornerList = [
-	(Corner::DFR, 1), (Corner::URF, 2), (Corner::DLF, 0), (Corner::DRB, 2),
-	(Corner::ULB, 0), (Corner::UFL, 0), (Corner::UBR, 1), (Corner::DBL, 0),
+	(Corner::DFR, 2), (Corner::URF, 1), (Corner::DLF, 0), (Corner::DRB, 1),
+	(Corner::ULB, 0), (Corner::UFL, 0), (Corner::UBR, 2), (Corner::DBL, 0),
 ];
 
 const fn chain_corners(t1: CornerList, t2: CornerList) -> CornerList {
@@ -182,8 +182,8 @@ const EDGE_TRANSFORM: [[EdgeList; NUM_TURNWISES]; NUM_TURNTYPES] = generate_edge
 
 #[rustfmt::skip]
 const TC_S_URF3: CornerList = [
-	(Corner::URF, 2), (Corner::UFL, 1), (Corner::DRB, 2), (Corner::UBR, 1),
-	(Corner::DLF, 2), (Corner::DFR, 1), (Corner::ULB, 2), (Corner::DBL, 1)
+	(Corner::URF, 1), (Corner::UFL, 2), (Corner::DRB, 1), (Corner::UBR, 2),
+	(Corner::DLF, 1), (Corner::DFR, 2), (Corner::ULB, 1), (Corner::DBL, 2)
 ];
 #[rustfmt::skip]
 const TC_S_F2: CornerList = [
@@ -570,9 +570,9 @@ impl From<CubieCube> for arraycube::ArrayCube {
 			let (c1, c2, c3) = corner_to_indices(c);
 			let cols = [c1, c2, c3];
 
-			out.data[i1] = cols[o as usize % 3] as u8;
-			out.data[i2] = cols[(1 + o) as usize % 3] as u8;
-			out.data[i3] = cols[(2 + o) as usize % 3] as u8;
+			out.data[i1] = cols[(3 - o) as usize % 3] as u8;
+			out.data[i2] = cols[(4 - o) as usize % 3] as u8;
+			out.data[i3] = cols[(5 - o) as usize % 3] as u8;
 		}
 
 		for pos in Edge::iter() {
@@ -633,7 +633,13 @@ mod tests {
 
 			let acubie: ArrayCube = cubie.clone().into();
 			let carray: CubieCube = array.clone().try_into().unwrap();
-			assert!(acubie == array);
+			if acubie != array {
+				println!("What it should be:");
+				array.print();
+				println!("What it is");
+				acubie.print();
+				panic!("Different cubes!");
+			}
 			assert!(carray == cubie);
 		}
 	}
@@ -657,7 +663,7 @@ mod tests {
 				let convert: ArrayCube = scubie.into();
 
 				if convert != sarray {
-					println!("How it should be:");
+					println!("What it should be:");
 					sarray.print();
 					println!("What it is:");
 					convert.print();

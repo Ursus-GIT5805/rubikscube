@@ -341,8 +341,8 @@ impl ArrayCube {
 	/// When you turn the corner piece to it's original place, without turning the front/down, left/right side
 	/// an odd number of quarters, the orientation is as follows:
 	/// 0, if it's correctly in it's place
-	/// 1, if it's rotated once in counterclockwise
-	/// 2, if not 0 or 1, i.e it's rotated clockwise once.
+	/// 1, if it's rotated once in clockwise
+	/// 2, if not 0 or 1, i.e it's counterclockwise once.
 	pub fn get_corner_at_pos(&self, pos: Corner) -> Option<(Corner, usize)> {
 		let (i1, i2, i3) = corner_to_indices(pos);
 
@@ -352,30 +352,14 @@ impl ArrayCube {
 		let corner = Corner::parse_corner(cols)?;
 		let ori = match corner {
 			Corner::URF | Corner::UBR | Corner::ULB | Corner::UFL => {
-				if cols[0] == UP {
-					0
-				} else if cols[1] == UP {
-					2
-				} else if cols[2] == UP {
-					1
-				} else {
-					return None;
-				}
+				cols.iter().position(|c| *c == UP)?
 			}
 			Corner::DLF | Corner::DFR | Corner::DRB | Corner::DBL => {
-				if cols[0] == DOWN {
-					0
-				} else if cols[1] == DOWN {
-					2
-				} else if cols[2] == DOWN {
-					1
-				} else {
-					return None;
-				}
+				cols.iter().position(|c| *c == DOWN)?
 			}
 		};
 
-		Some((corner, ori as usize))
+		Some((corner, ori))
 	}
 
 	/// Returns the edge at the position and it's orientation
