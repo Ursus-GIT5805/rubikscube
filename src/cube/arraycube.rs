@@ -159,10 +159,12 @@ impl FromStr for ArrayCube {
 
 		let mut cube = ArrayCube::new();
 
+		// Parse the colors from the string
 		for (i, c) in s.as_bytes().iter().enumerate() {
 			cube.data[i] = (*c - b'a') * CUBE_AREA as u8;
 		}
 
+		// The center pieces have a fixed index
 		for i in (4..54).step_by(9) {
 			cube.data[i] = i as u8;
 		}
@@ -172,8 +174,10 @@ impl FromStr for ArrayCube {
 				Some(v) => v,
 				None => return Err(()),
 			};
-			let indices: [usize; 3] = corner_to_indices(corner).into();
 
+			// The 3 indices to write to
+			let indices: [usize; 3] = corner_to_indices(corner).into();
+			// The 3 indices to write there
 			let cols: [usize; 3] = corner_to_indices(c).into();
 
 			for (i, idx) in indices.into_iter().enumerate() {
@@ -192,13 +196,13 @@ impl FromStr for ArrayCube {
 			};
 
 			// The 2 indices to write to
-			let (i1, i2) = edge_to_indices(pos);
-			// The actual 2 colors there
-			let (c1, c2) = edge_to_indices(e);
-			let cols = [c1, c2];
+			let indices: [usize; 2] = edge_to_indices(pos).into();
+			// The 2 indices to write there
+			let cols: [usize; 2] = edge_to_indices(e).into();
 
-			cube.data[i1] = cols[o % 2] as u8;
-			cube.data[i2] = cols[(1 + o) % 2] as u8;
+			for (i, idx) in indices.into_iter().enumerate() {
+				cube.data[idx] = cols[(o + i) % 2] as u8;
+			}
 		}
 
 		Ok(cube)
