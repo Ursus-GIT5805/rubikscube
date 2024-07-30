@@ -172,13 +172,20 @@ impl FromStr for ArrayCube {
 				Some(v) => v,
 				None => return Err(()),
 			};
-			let (i1, i2, i3) = corner_to_indices(corner);
+			let indices: [usize; 3] = corner_to_indices(corner).into();
 
 			let (c1, c2, c3) = corner_to_indices(c);
 			let cols = [c1, c2, c3];
-			cube.data[i1] = cols[o % 3] as u8;
-			cube.data[i2] = cols[(1 + o) % 3] as u8;
-			cube.data[i3] = cols[(2 + o) % 3] as u8;
+
+			for (i, idx) in indices.into_iter().enumerate() {
+				if cube.data[idx] as usize / (CUBE_DIM * CUBE_DIM)
+					== cols[(o + i) % 3] / (CUBE_DIM * CUBE_DIM)
+				{
+					cube.data[idx] = cols[(o + i) % 3] as u8;
+				} else {
+					return Err(());
+				}
+			}
 		}
 
 		for pos in Edge::iter() {
