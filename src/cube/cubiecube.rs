@@ -506,9 +506,27 @@ impl CubieCube {
 			return false;
 		}
 
+		// Check that all corners are there once
+		let mut contains = [false; NUM_CORNERS];
+		for (c, _) in self.corners.iter() {
+			contains[*c as usize] = true;
+		}
+		if contains.into_iter().any(|b| !b) {
+			return false;
+		}
+
 		// The sum of the edge orientations have to be divisible by 2
 		let cori = self.edges.iter().map(|(_, o)| o).sum::<Ori>();
 		if cori % 2 != 0 {
+			return false;
+		}
+
+		// Check that all edges are there once
+		let mut contains = [false; NUM_EDGES];
+		for (e, _) in self.edges.iter() {
+			contains[*e as usize] = true;
+		}
+		if contains.into_iter().any(|b| !b) {
 			return false;
 		}
 
