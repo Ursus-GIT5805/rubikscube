@@ -126,20 +126,18 @@ fn main() -> std::io::Result<()> {
 	// Parses a cube out of the cube string
 	if !args.set.is_empty() {
 		cube =
-			ArrayCube::from_str(args.set.as_str()).expect("Given cube string couldn't be parsed!");
+			ArrayCube::from_str(args.set.as_str()).expect("Given cube string couldn't be parsed");
 	}
 
 	// Applies turns from args
-	cube.apply_turns(
-		parse_turns(args.sequence).expect("Given input sequence could not be parsed!"),
-	);
+	cube.apply_turns(parse_turns(args.sequence).expect("Given input sequence could not be parsed"));
 
 	// Use the interactive mode
 	if args.interactive {
 		// Run interactive mode
 		let res = interactive::interactive_mode();
 		// Parse cube given from the interactive mode
-		cube = ArrayCube::from_str(&res).expect("Entered cube is illegal!");
+		cube = ArrayCube::from_str(&res).expect("Entered cube is illegal");
 	}
 
 	// Solve the cube and only outputs the sequence
@@ -147,7 +145,7 @@ fn main() -> std::io::Result<()> {
 		let cubie: CubieCube = cube
 			.clone()
 			.try_into()
-			.expect("The given cube couldn't be converted properly!");
+			.expect("The given cube couldn't be converted properly");
 
 		if !cubie.is_solvable() {
 			panic!("The given cube is not solvable!");
