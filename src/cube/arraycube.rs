@@ -160,8 +160,8 @@ impl FromStr for ArrayCube {
 		let mut cube = ArrayCube::new();
 
 		// Parse the colors from the string
-		for (i, c) in s.as_bytes().iter().enumerate() {
-			cube.data[i] = (*c - b'a') * CUBE_AREA as u8;
+		for (i, c) in s.as_bytes().into_iter().enumerate() {
+			cube.data[i] = (c - b'a') * CUBE_AREA as u8;
 		}
 
 		// The center pieces have a fixed index
@@ -181,8 +181,9 @@ impl FromStr for ArrayCube {
 			let cols: [usize; 3] = corner_to_indices(c).into();
 
 			for (i, idx) in indices.into_iter().enumerate() {
-				if cube.data[idx] as usize / CUBE_AREA == cols[(o + i) % 3] / CUBE_AREA {
-					cube.data[idx] = cols[(o + i) % 3] as u8;
+				let colidx = (3 - o + i) % 3;
+				if cube.data[idx] as usize / CUBE_AREA == cols[colidx] / CUBE_AREA {
+					cube.data[idx] = cols[colidx] as u8;
 				} else {
 					return Err(());
 				}
