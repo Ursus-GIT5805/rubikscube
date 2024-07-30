@@ -8,6 +8,9 @@ use turn::*;
 /// The dimension of the cube
 pub const CUBE_DIM: usize = 3;
 
+/// The number of facelets per side
+pub const CUBE_AREA: usize = CUBE_DIM * CUBE_DIM;
+
 /// The number of sides of a cube
 pub const NUM_SIDES: usize = 6;
 

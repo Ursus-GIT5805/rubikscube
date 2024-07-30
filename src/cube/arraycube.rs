@@ -5,7 +5,7 @@ use strum::*;
 
 use const_for::const_for;
 
-const CUBEDATA_LEN: usize = CUBE_DIM * CUBE_DIM * NUM_SIDES;
+const CUBEDATA_LEN: usize = CUBE_AREA * NUM_SIDES;
 
 type CubeData = [u8; CUBEDATA_LEN];
 
@@ -160,7 +160,7 @@ impl FromStr for ArrayCube {
 		let mut cube = ArrayCube::new();
 
 		for (i, c) in s.as_bytes().iter().enumerate() {
-			cube.data[i] = (*c - b'a') * (CUBE_DIM * CUBE_DIM) as u8;
+			cube.data[i] = (*c - b'a') * CUBE_AREA as u8;
 		}
 
 		for i in (4..54).step_by(9) {
@@ -174,13 +174,10 @@ impl FromStr for ArrayCube {
 			};
 			let indices: [usize; 3] = corner_to_indices(corner).into();
 
-			let (c1, c2, c3) = corner_to_indices(c);
-			let cols = [c1, c2, c3];
+			let cols: [usize; 3] = corner_to_indices(c).into();
 
 			for (i, idx) in indices.into_iter().enumerate() {
-				if cube.data[idx] as usize / (CUBE_DIM * CUBE_DIM)
-					== cols[(o + i) % 3] / (CUBE_DIM * CUBE_DIM)
-				{
+				if cube.data[idx] as usize / CUBE_AREA == cols[(o + i) % 3] / CUBE_AREA {
 					cube.data[idx] = cols[(o + i) % 3] as u8;
 				} else {
 					return Err(());
@@ -226,7 +223,7 @@ impl RubiksCube for ArrayCube {
 pub const fn corner_to_indices(c: Corner) -> (usize, usize, usize) {
 	// Return index of (x/y) at the given side
 	const fn help(side: Side, x: usize, y: usize) -> usize {
-		side as usize * CUBE_DIM * CUBE_DIM + x + y * CUBE_DIM
+		side as usize * CUBE_AREA + x + y * CUBE_DIM
 	}
 
 	// Get the 3 indices of the corner
@@ -249,7 +246,7 @@ pub const fn corner_to_indices(c: Corner) -> (usize, usize, usize) {
 pub const fn edge_to_indices(e: Edge) -> (usize, usize) {
 	// Return index of (x/y) at the given side
 	const fn help(side: Side, x: usize, y: usize) -> usize {
-		side as usize * CUBE_DIM * CUBE_DIM + x + y * CUBE_DIM
+		side as usize * CUBE_AREA + x + y * CUBE_DIM
 	}
 
 	// Get the 2 indices of the edge
@@ -289,9 +286,8 @@ impl ArrayCube {
 		// Generate a space depending on the size of CUBE_DIM
 		let space: String = " ".repeat(2 * CUBE_DIM + 1);
 
-		const CD2: usize = CUBE_DIM * CUBE_DIM;
 		const fn help(side: Side, x: usize, y: usize) -> usize {
-			(side as usize) * (CUBE_DIM * CUBE_DIM) + x + y * CUBE_DIM
+			(side as usize) * CUBE_AREA + x + y * CUBE_DIM
 		}
 
 		// Print Up-side
@@ -300,7 +296,7 @@ impl ArrayCube {
 			for i in 0..CUBE_DIM {
 				print!(
 					"{}▀ ",
-					get_ansii_color(self.data[help(UP, i, j)] / CD2 as u8)
+					get_ansii_color(self.data[help(UP, i, j)] / CUBE_AREA as u8)
 				);
 			}
 			println!();
@@ -313,7 +309,7 @@ impl ArrayCube {
 				for i in 0..CUBE_DIM {
 					print!(
 						"{}▄ ",
-						get_ansii_color(self.data[help(s, i, j)] / CD2 as u8)
+						get_ansii_color(self.data[help(s, i, j)] / CUBE_AREA as u8)
 					);
 				}
 				print!(" ");
@@ -328,7 +324,7 @@ impl ArrayCube {
 			for i in 0..CUBE_DIM {
 				print!(
 					"{}▀ ",
-					get_ansii_color(self.data[help(DOWN, i, j)] / CD2 as u8)
+					get_ansii_color(self.data[help(DOWN, i, j)] / CUBE_AREA as u8)
 				);
 			}
 			println!();
