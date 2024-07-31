@@ -1,4 +1,5 @@
-use strum::EnumCount;
+use rand::Rng;
+use strum::{EnumCount, IntoEnumIterator};
 
 use std::iter::Iterator;
 use std::str::FromStr;
@@ -117,4 +118,21 @@ where
 	T: Into<String>,
 {
 	item.into().split_whitespace().map(Turn::from_str).collect()
+}
+
+/// Return a random sequence of turns of with length n
+#[allow(unused)]
+pub fn random_sequence(n: usize) -> Vec<Turn> {
+	let sides: Vec<_> = TurnType::iter().collect();
+	let wises: Vec<_> = TurnWise::iter().collect();
+	let mut rng = rand::thread_rng();
+
+	(0..n)
+		.map(|_| {
+			let side = sides[rng.gen::<usize>() % sides.len()];
+			let wise = wises[rng.gen::<usize>() % wises.len()];
+
+			Turn { side, wise }
+		})
+		.collect()
 }

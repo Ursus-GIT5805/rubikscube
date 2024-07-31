@@ -545,7 +545,7 @@ mod tests {
 	fn array_cube_turns1() {
 		let mut cube = ArrayCube::default();
 		// Little scramble
-		cube.apply_turns(parse_turns("L R' U2 F D' R U2 R'").unwrap());
+		cube.apply_turns(random_sequence(20));
 
 		for side in TurnType::iter() {
 			let turn_n = Turn {
@@ -685,6 +685,23 @@ mod tests {
 			}
 			for edge in Edge::iter() {
 				assert!(c.get_edge_at_pos(edge).is_some());
+			}
+		}
+	}
+
+	#[test]
+	/// Check the conversion between ArrayCube and Strings
+	fn arraycube_string_conversion() {
+		let turns = random_sequence(40);
+		let mut cube = ArrayCube::new();
+
+		for turn in turns.into_iter() {
+			cube.apply_turn(turn);
+
+			let s: String = cube.clone().into();
+			match ArrayCube::from_str(&s) {
+				Ok(c) => assert_eq!(c, cube),
+				Err(e) => panic!("ArrayCube conversion failed: {}", e),
 			}
 		}
 	}
