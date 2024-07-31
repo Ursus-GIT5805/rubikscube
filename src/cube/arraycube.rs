@@ -149,18 +149,30 @@ fn convert_vec_to_transformation(turns: &Vec<Turn>) -> CubeData {
 
 // =========
 
+#[derive(thiserror::Error, Debug)]
+pub enum FromStrError {
+	#[error("The given string does not have length {}", CUBEDATA_LEN)]
+	InvalidLength,
+	#[error("The corner at position {0} has a invalid color combination")]
+	InvalidCorner(Corner),
+	#[error("The corner at position {0} has a invalid color permutation")]
+	InvalidCornerOrder(Corner),
+	#[error("The edge at position {0} has a invalid color combination")]
+	InvalidEdge(Edge),
+}
+
 impl FromStr for ArrayCube {
-	type Err = ();
+	type Err = FromStrError;
 
 	fn from_str(s: &str) -> Result<Self, Self::Err> {
 		if s.len() != CUBEDATA_LEN {
-			return Err(());
+			return Err(FromStrError::InvalidLength);
 		}
 
 		let mut cube = ArrayCube::new();
 
 		// Parse the colors from the string
-		for (i, c) in s.as_bytes().into_iter().enumerate() {
+		for (i, c) in s.as_bytes().iter().enumerate() {
 			cube.data[i] = (c - b'a') * CUBE_AREA as u8;
 		}
 
@@ -169,14 +181,14 @@ impl FromStr for ArrayCube {
 			cube.data[i] = i as u8;
 		}
 
-		for corner in Corner::iter() {
-			let (c, o) = match cube.get_corner_at_pos(corner) {
+		for pos in Corner::iter() {
+			let (c, o) = match cube.get_corner_at_pos(pos) {
 				Some(v) => v,
-				None => return Err(()),
+				None => return Err(FromStrError::InvalidCorner(pos)),
 			};
 
 			// The 3 indices to write to
-			let indices: [usize; 3] = corner_to_indices(corner).into();
+			let indices: [usize; 3] = corner_to_indices(pos).into();
 			// The 3 indices to write there
 			let cols: [usize; 3] = corner_to_indices(c).into();
 
@@ -185,7 +197,7 @@ impl FromStr for ArrayCube {
 				if cube.data[idx] as usize / CUBE_AREA == cols[colidx] / CUBE_AREA {
 					cube.data[idx] = cols[colidx] as u8;
 				} else {
-					return Err(());
+					return Err(FromStrError::InvalidCornerOrder(pos));
 				}
 			}
 		}
@@ -193,7 +205,7 @@ impl FromStr for ArrayCube {
 		for pos in Edge::iter() {
 			let (e, o) = match cube.get_edge_at_pos(pos) {
 				Some(v) => v,
-				None => return Err(()),
+				None => return Err(FromStrError::InvalidEdge(pos)),
 			};
 
 			// The 2 indices to write to
@@ -350,7 +362,7 @@ impl ArrayCube {
 	/// an odd number of quarters, the orientation is as follows:
 	/// 0, if it's correctly in it's place
 	/// 1, if it's rotated once in clockwise
-	/// 2, if not 0 or 1, i.e it's counterclockwise once.
+	/// 2, if not 0 or 1, i.e it's rotated counterclockwise once.
 	pub fn get_corner_at_pos(&self, pos: Corner) -> Option<(Corner, usize)> {
 		let (i1, i2, i3) = corner_to_indices(pos);
 

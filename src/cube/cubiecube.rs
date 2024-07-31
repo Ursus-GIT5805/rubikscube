@@ -499,35 +499,35 @@ impl CubieCube {
 		self.edges == TE_BASE && self.corners == TC_BASE
 	}
 
-	pub fn is_solvable(&self) -> bool {
+	pub fn check_validity(&self) -> Result<(), CubeError> {
 		// The sum of the corner orientations have to be divisible by 3
 		let cori = self.corners.iter().map(|(_, o)| o).sum::<Ori>();
 		if cori % 3 != 0 {
-			return false;
+			return Err(CubeError::CornerOrientation(cori as usize % 3));
 		}
 
-		// Check that all corners are there once
+		// Check that all corners appear once
 		let mut contains = [false; NUM_CORNERS];
 		for (c, _) in self.corners.iter() {
 			contains[*c as usize] = true;
 		}
 		if contains.into_iter().any(|b| !b) {
-			return false;
+			return Err(CubeError::Cubies);
 		}
 
 		// The sum of the edge orientations have to be divisible by 2
 		let cori = self.edges.iter().map(|(_, o)| o).sum::<Ori>();
 		if cori % 2 != 0 {
-			return false;
+			return Err(CubeError::EdgeOrientation);
 		}
 
-		// Check that all edges are there once
+		// Check that all edges appear once
 		let mut contains = [false; NUM_EDGES];
 		for (e, _) in self.edges.iter() {
 			contains[*e as usize] = true;
 		}
 		if contains.into_iter().any(|b| !b) {
-			return false;
+			return Err(CubeError::Cubies);
 		}
 
 		let cperm = self.get_corner_perm_coord();
@@ -536,8 +536,16 @@ impl CubieCube {
 		let c_inv = count_permutation_inversions(cperm);
 		let e_inv = count_permutation_inversions(eperm);
 
-		// There must be an even number of swap throughout the permutations
-		(e_inv + c_inv) % 2 == 0
+		// There must be an even number of swaps throughout the permutations
+		if (e_inv + c_inv) % 2 != 0 {
+			return Err(CubeError::Permutation);
+		}
+
+		Ok(())
+	}
+
+	pub fn is_solvable(&self) -> bool {
+		self.check_validity().is_ok()
 	}
 }
 
@@ -550,7 +558,7 @@ impl RubiksCube for CubieCube {
 }
 
 impl TryFrom<arraycube::ArrayCube> for CubieCube {
-	type Error = ();
+	type Error = CubeError;
 
 	fn try_from(value: arraycube::ArrayCube) -> Result<Self, Self::Error> {
 		let mut out = CubieCube::new();
@@ -558,7 +566,7 @@ impl TryFrom<arraycube::ArrayCube> for CubieCube {
 		for edge in Edge::iter() {
 			let (e, o) = match value.get_edge_at_pos(edge) {
 				Some(x) => x,
-				None => return Err(()),
+				None => return Err(CubeError::Cubies),
 			};
 			out.edges[edge as usize] = (e, o as Ori);
 		}
@@ -566,7 +574,7 @@ impl TryFrom<arraycube::ArrayCube> for CubieCube {
 		for corner in Corner::iter() {
 			let (c, o) = match value.get_corner_at_pos(corner) {
 				Some(x) => x,
-				None => return Err(()),
+				None => return Err(CubeError::Cubies),
 			};
 			out.corners[corner as usize] = (c, o as Ori);
 		}

@@ -137,7 +137,10 @@ fn main() -> std::io::Result<()> {
 		// Run interactive mode
 		let res = interactive::interactive_mode();
 		// Parse cube given from the interactive mode
-		cube = ArrayCube::from_str(&res).expect("Entered cube is illegal");
+		cube = match ArrayCube::from_str(&res) {
+			Ok(res) => res,
+			Err(e) => panic!("Given cube has invalid properties: {}", e),
+		}
 	}
 
 	// Solve the cube and only outputs the sequence
@@ -147,8 +150,8 @@ fn main() -> std::io::Result<()> {
 			.try_into()
 			.expect("The given cube couldn't be converted properly");
 
-		if !cubie.is_solvable() {
-			panic!("The given cube is not solvable!");
+		if let Err(e) = cubie.check_validity() {
+			panic!("The given cube is not solvable: {}", e);
 		}
 
 		// Choose algorithm to use

@@ -40,7 +40,7 @@ pub fn get_ansii_color(side: Side) -> &'static str {
 // ===== Edge Piece =====
 
 /// All the different position names for an Edge
-#[derive(Clone, Copy, Default, PartialEq, Eq, strum::EnumIter, strum::EnumCount, Debug)]
+#[derive(Clone, Copy, Default, PartialEq, Eq, strum::EnumIter, strum::EnumCount, strum::Display, Debug)]
 #[repr(usize)]
 #[rustfmt::skip]
 pub enum Edge {
@@ -100,7 +100,7 @@ impl Edge {
 /// A corner piece
 /// Note that the name is carefully sorted!
 #[derive(
-	Clone, Copy, Default, PartialEq, Eq, Debug, strum::EnumIter, strum::EnumString, strum::EnumCount,
+	Clone, Copy, Default, PartialEq, Eq, Debug, strum::EnumIter, strum::EnumString, strum::EnumCount, strum::Display
 )]
 #[allow(clippy::upper_case_acronyms)]
 #[repr(usize)]
@@ -158,6 +158,21 @@ impl Corner {
 
 		Some(res)
 	}
+}
+
+/// It contains all the different types a cube configuration
+/// could illegal.
+/// From it, you are able to know how to fix the cube.
+#[derive(thiserror::Error, Debug)]
+pub enum CubeError {
+	#[error("The orientation-parity of the corners are off by +{0}")]
+	CornerOrientation(usize),
+	#[error("The orientation-parity of the edges are off by 1")]
+	EdgeOrientation,
+	#[error("The number of swaps needed is odd")]
+	Permutation,
+	#[error("Not all cubies are present on the cube")]
+	Cubies,
 }
 
 /// The RubiksCube trait.
