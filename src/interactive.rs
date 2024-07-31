@@ -1,71 +1,82 @@
+use std::str::FromStr;
+
 use pancurses::*;
 
 use crate::cube::*;
 
-const SIDE_WIDTH: i32 = 3 * 6;
-const SIDE_HEIGHT: i32 = 3 * 3;
+use self::arraycube::ArrayCube;
+
+const OFFSET_X: i32 = 2;
+const OFFSET_Y: i32 = 1;
+
+const CUBEDATA_LEN: usize = CUBE_AREA * 6;
+
+/// The cube is laid out in a grid.
+/// This grid converts the grid coordinate to the index
+/// of the cube data
+const GRID: [[usize; 4 * CUBE_DIM]; 3 * CUBE_DIM] = [
+	[99, 99, 99, 0, 1, 2, 99, 99, 99, 99, 99, 99],
+	[99, 99, 99, 3, 4, 5, 99, 99, 99, 99, 99, 99],
+	[99, 99, 99, 6, 7, 8, 99, 99, 99, 99, 99, 99],
+	[36, 37, 38, 27, 28, 29, 45, 46, 47, 18, 19, 20],
+	[39, 40, 41, 30, 31, 32, 48, 49, 50, 21, 22, 23],
+	[42, 43, 44, 33, 34, 35, 51, 52, 53, 24, 25, 26],
+	[99, 99, 99, 9, 10, 11, 99, 99, 99, 99, 99, 99],
+	[99, 99, 99, 12, 13, 14, 99, 99, 99, 99, 99, 99],
+	[99, 99, 99, 15, 16, 17, 99, 99, 99, 99, 99, 99],
+];
+
+fn draw_at(win: &Window, x: i32, y: i32, c: &str) {
+	win.mv(y, x);
+	win.printw(c);
+}
 
 /// Draw one side of a cube
-fn draw_side(win: &Window, y: i32, x: i32, slice: &[u8]) {
-	win.mv(y, x);
+fn draw_facelet(win: &Window, x: usize, y: usize, data: &[u8]) {
+	let col = if GRID[y][x] < CUBEDATA_LEN {
+		data[GRID[y][x]] as u32
+	} else {
+		return;
+	};
 
-	for j in 0..3usize {
-		win.mv(y + 3 * (j as i32), x);
-		for i in 0..3 {
-			win.attron(COLOR_PAIR(slice[i + j * 3] as u32 + 1));
-			win.printw("███");
-			win.attron(COLOR_PAIR(1));
-			win.printw("   ");
-		}
-		win.mv(y + 3 * (j as i32) + 1, x);
-		for i in 0..3 {
-			win.attron(COLOR_PAIR(slice[i + j * 3] as u32 + 1));
-			win.printw("▀▀▀");
-			win.attron(COLOR_PAIR(1));
-			win.printw("   ");
+	let cx = x as i32 * 6 + OFFSET_X;
+	let cy = y as i32 * 3 + OFFSET_Y;
+
+	win.attron(COLOR_PAIR(col + 1));
+	draw_at(win, cx, cy, "███");
+	draw_at(win, cx, cy + 1, "▀▀▀");
+}
+
+/// Draw the entire cube
+fn draw_cube(win: &Window, data: &[u8]) {
+	for x in 0..CUBE_DIM * 4 {
+		for y in 0..CUBE_DIM * 3 {
+			draw_facelet(win, x, y, data);
 		}
 	}
 }
 
-/// Draw the cube
-fn draw_cube(win: &Window, data: &[u8]) {
-	let offy = 2;
-	let offx = offy * 2;
+/// Draw cursor at (X/Y). Clear the cursor if clear is true
+fn draw_cursor(win: &Window, x: usize, y: usize, clear: bool) {
+	let cx = x as i32 * 6 + OFFSET_X;
+	let cy = y as i32 * 3 + OFFSET_Y;
 
-	{
-		// Up
-		let slice = &data[0..9];
-		draw_side(win, offy, offx + SIDE_WIDTH, slice);
-	}
-	{
-		// Down
-		let slice = &data[9..18];
-		draw_side(win, offy + 2 * SIDE_HEIGHT, offx + SIDE_WIDTH, slice);
-	}
-	{
-		// Back
-		let slice = &data[18..27];
-		draw_side(win, offy + SIDE_HEIGHT, offx + 3 * SIDE_WIDTH, slice);
-	}
-	{
-		// Front
-		let slice = &data[27..36];
-		draw_side(win, offy + SIDE_HEIGHT, offx + SIDE_WIDTH, slice);
-	}
-	{
-		// Left
-		let slice = &data[36..45];
-		draw_side(win, offy + SIDE_HEIGHT, offx, slice);
-	}
-	{
-		// Right
-		let slice = &data[45..54];
-		draw_side(win, offy + SIDE_HEIGHT, offx + 2 * SIDE_WIDTH, slice);
-	}
+	let c = if clear { " " } else { "|" };
+
+	win.attron(COLOR_PAIR(1));
+	draw_at(win, cx - 1, cy, c);
+	draw_at(win, cx - 1, cy + 1, c);
+	draw_at(win, cx + 3, cy, c);
+	draw_at(win, cx + 3, cy + 1, c);
+}
+
+fn get_cube(data: &[u8]) -> Result<ArrayCube, arraycube::FromStrError> {
+	let s: String = data.iter().map(|c| (b'a' + c) as char).collect();
+	ArrayCube::from_str(&s)
 }
 
 /// Draw the entire screen
-fn render(idx: usize, cube: &[u8], win: &Window) {
+fn init(cube: &[u8], win: &Window) {
 	// Set better colors
 	init_color(COLOR_WHITE, 1000, 1000, 1000);
 	init_color(COLOR_YELLOW, 1000, 1000, 0);
@@ -84,128 +95,94 @@ fn render(idx: usize, cube: &[u8], win: &Window) {
 	win.clear();
 	draw_cube(win, cube);
 
-	let offy = 2;
-	let offx = offy * 2;
+	win.attron(COLOR_PAIR(1));
+	draw_cursor(win, 4, 4, false);
 
-	let (mut y, mut x) = match idx as u8 / 9 {
-		UP => (0, SIDE_WIDTH),
-		DOWN => (SIDE_HEIGHT * 2, SIDE_WIDTH),
-		BACK => (SIDE_HEIGHT, SIDE_WIDTH * 3),
-		FRONT => (SIDE_HEIGHT, SIDE_WIDTH),
-		LEFT => (SIDE_HEIGHT, 0),
-		RIGHT => (SIDE_HEIGHT, SIDE_WIDTH * 2),
-		_ => (0, 0),
-	};
-	x += offx + 6 * (idx as i32 % 3);
-	y += offy + 3 * ((idx as i32 / 3) % 3);
-
-	win.mv(y, x - 1);
-	win.printw("│");
-	win.mv(y + 1, x - 1);
-	win.printw("│");
-
-	win.mv(y, x + 3);
-	win.printw("│");
-	win.mv(y + 1, x + 3);
-	win.printw("│");
-
-	win.mv(SIDE_HEIGHT * 3 + 3, 0);
+	win.mv(3 * CUBE_DIM as i32 * 3 + 4, 0);
 	win.printw("Move cursor with (i,j,k,l)\n");
 	win.printw("Set the color with (w,y|g,b|o,r)\n");
 	win.printw("Clear the cube with (shift+)C\n\n");
 
-	/*if cube.is_solvable() {
-		win.attron( COLOR_PAIR(3) );
-		win.printw("This cube is solvable.\n");
-	} else {
-		win.attron( COLOR_PAIR(5) );
-		win.printw("This cube is UNSOLBABLE!!!\n");
-	}*/
 	win.attron(COLOR_PAIR(1));
 
 	win.printw("Press (shift+)Q to quit, if the cube is solvable.");
-
 	win.refresh();
+}
+
+fn update_legality_message(win: &Window, data: &[u8]) {
+	let res: Result<(), String> = match get_cube(data) {
+		Ok(array) => match TryInto::<cubiecube::CubieCube>::try_into(array) {
+			Ok(c) => match c.check_validity() {
+				Ok(_) => Ok(()),
+				Err(e) => Err(e.to_string()),
+			},
+			Err(e) => Err(e.to_string()),
+		},
+		Err(e) => Err(e.to_string()),
+	};
+
+	win.mv(3 * CUBE_DIM as i32 * 3 + 3, 0);
+	win.clrtoeol();
+
+	match res {
+		Ok(()) => {
+			win.attron(COLOR_PAIR(3));
+			win.printw("The cube is solvable!");
+		}
+		Err(e) => {
+			win.attron(COLOR_PAIR(5));
+			win.printw(e);
+		}
+	}
 }
 
 /// Handle the interactive mode
 pub fn interactive_mode() -> String {
-	/*
-	For real, this code is ugly,
-	Be warned that you don't see beautiful code here.
-	 */
-
 	let mut data: Vec<_> = (0..54).map(|i| i / 9).collect();
-	let mut idx = 0usize;
+
+	let mut x = 4;
+	let mut y = 4;
 
 	let win = initscr();
 
-	// noecho();
 	start_color();
-
-	win.printw("Press any button.");
-	win.refresh();
-
-	render(idx, &data, &win);
+	noecho();
+	init(&data, &win);
 
 	loop {
 		if let Some(key) = win.getch() {
-			match key {
-				Input::Character(c) => match c {
+			let mut nx = x;
+			let mut ny = y;
+
+			if let Input::Character(c) = key {
+				match c {
 					// Cursor up
 					'i' => {
-						if (idx % 9) / 3 == 0 {
-							match idx as u8 / 9 {
-								FRONT => idx = (idx + 54 - 3) % 9 + (UP as usize) * 9,
-								DOWN => idx = (idx + 54 - 3) % 9 + (FRONT as usize) * 9,
-								_ => {}
-							}
-						} else {
-							idx -= 3;
+						if y > 0 && GRID[y - 1][x] < CUBEDATA_LEN {
+							ny -= 1;
 						}
 					}
 
 					// Cursor down
 					'k' => {
-						if (idx % 9) / 3 == 2 {
-							match idx as u8 / 9 {
-								FRONT => idx = (idx + 3) % 9 + (DOWN as usize) * 9,
-								UP => idx = (idx + 3) % 9 + (FRONT as usize) * 9,
-								_ => {}
-							}
-						} else {
-							idx += 3;
+						if y + 1 < GRID.len() && GRID[y + 1][x] < CUBEDATA_LEN {
+							ny += 1;
 						}
 					}
 
 					// Cursor left
 					'j' => {
-						if idx % 3 == 0 {
-							match idx as u8 / 9 {
-								FRONT => idx = (idx + 2) % 9 + (LEFT as usize) * 9,
-								RIGHT => idx = (idx + 2) % 9 + (FRONT as usize) * 9,
-								BACK => idx = (idx + 2) % 9 + (RIGHT as usize) * 9,
-								_ => {}
-							}
-						} else {
-							idx -= 1;
+						if x > 0 && GRID[y][x - 1] < CUBEDATA_LEN {
+							nx -= 1;
 						}
 					}
 
 					// Cursor right
 					'l' => {
-						if idx % 3 == 2 {
-							match idx as u8 / 9 {
-								LEFT => idx = (idx - 2) % 9 + (FRONT as usize) * 9,
-								FRONT => idx = (idx - 2) % 9 + (RIGHT as usize) * 9,
-								RIGHT => idx = (idx - 2) % 9 + (BACK as usize) * 9,
-								_ => {}
-							}
-						} else {
-							idx += 1;
+						if x + 1 < GRID[y].len() && GRID[y][x + 1] < CUBEDATA_LEN {
+							nx += 1;
 						}
 					}
-
 					'w' | 'y' | 'g' | 'b' | 'r' | 'o' => {
 						let side = match c {
 							'w' => UP,
@@ -217,26 +194,33 @@ pub fn interactive_mode() -> String {
 							_ => panic!("Undefined behaviour"),
 						};
 
-						// Check wheter it isn't the middle piece (the middle piece mustn't be changed!)
-						if idx % 9 != 4 {
+						let idx = GRID[y][x];
+						// Check that it isn't the cener piece and else apply it
+						if idx % CUBE_AREA != 4 {
 							data[idx] = side;
+							draw_facelet(&win, x, y, &data);
+							update_legality_message(&win, &data);
 						}
 					}
 					'C' => {
-						data = (0..54).map(|i| i / 9).collect();
+						data = (0..CUBEDATA_LEN)
+							.map(|i| i as u8 / CUBE_AREA as u8)
+							.collect();
 					}
 					'Q' => break,
 					_ => {}
-				},
-				_ => continue,
+				}
 			}
-		} else {
-			continue;
+
+			if nx != x || ny != y {
+				draw_cursor(&win, x, y, true);
+				draw_cursor(&win, nx, ny, false);
+
+				x = nx;
+				y = ny;
+			}
+			win.mv(100, 100);
 		}
-
-		idx %= 54;
-
-		render(idx, &data, &win);
 	}
 
 	endwin();
