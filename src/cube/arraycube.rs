@@ -51,8 +51,12 @@ const fn is_base(t1: CubeData) -> bool {
 * Let t be the transformation, s the old state and n the new state:
 * n[i] = s[ t[i] ] holds true
 
-* The following lists are carefully constructed!
-*/
+ * The following lists are carefully constructed.
+ *
+ * Naming is as follows:
+ * T_{Name} or T_S_{Name}
+ * where S stands for (S)ymmetry
+ */
 
 // Neutral Transformation: Does nothing
 const T_BASE: CubeData = [
@@ -435,36 +439,46 @@ impl Mul for ArrayCube {
 
 // ===== Symmetry Transformations =====
 
-const BASE_SYMMETRY: [CubeData; 4] = [
-	//S_URF3
-	[
-		33, 30, 27, 34, 31, 28, 35, 32, 29, 24, 21, 18, 25, 22, 19, 26, 23, 20, 38, 41, 44, 37, 40,
-		43, 36, 39, 42, 51, 48, 45, 52, 49, 46, 53, 50, 47, 9, 10, 11, 12, 13, 14, 15, 16, 17, 8,
-		7, 6, 5, 4, 3, 2, 1, 0,
-	],
-	//S_F2
-	[
-		17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 26, 25, 24, 23, 22, 21, 20,
-		19, 18, 35, 34, 33, 32, 31, 30, 29, 28, 27, 53, 52, 51, 50, 49, 48, 47, 46, 45, 44, 43, 42,
-		41, 40, 39, 38, 37, 36,
-	],
-	// S_U4
-	[
-		6, 3, 0, 7, 4, 1, 8, 5, 2, 11, 14, 17, 10, 13, 16, 9, 12, 15, 36, 37, 38, 39, 40, 41, 42,
-		43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 27, 28, 29, 30, 31, 32, 33, 34, 35, 18, 19, 20,
-		21, 22, 23, 24, 25, 26,
-	],
-	//S_LR2
-	[
-		2, 1, 0, 5, 4, 3, 8, 7, 6, 11, 10, 9, 14, 13, 12, 17, 16, 15, 20, 19, 18, 23, 22, 21, 26,
-		25, 24, 29, 28, 27, 32, 31, 30, 35, 34, 33, 47, 46, 45, 50, 49, 48, 53, 52, 51, 38, 37, 36,
-		41, 40, 39, 44, 43, 42,
-	],
+const T_S_URF3: CubeData = [
+	33, 30, 27, 34, 31, 28, 35, 32, 29, // up
+	24, 21, 18, 25, 22, 19, 26, 23, 20, // down
+	38, 41, 44, 37, 40, 43, 36, 39, 42, // back
+	51, 48, 45, 52, 49, 46, 53, 50, 47, // front
+	9, 10, 11, 12, 13, 14, 15, 16, 17, // left
+	8, 7, 6, 5, 4, 3, 2, 1, 0, // right
+];
+
+const T_S_F2: CubeData = [
+	17, 16, 15, 14, 13, 12, 11, 10, 9, // up
+	8, 7, 6, 5, 4, 3, 2, 1, 0, // down
+	26, 25, 24, 23, 22, 21, 20, 19, 18, // back
+	35, 34, 33, 32, 31, 30, 29, 28, 27, // front
+	53, 52, 51, 50, 49, 48, 47, 46, 45, // left
+	44, 43, 42, 41, 40, 39, 38, 37, 36, // right
+];
+
+const T_S_U4: CubeData = [
+	6, 3, 0, 7, 4, 1, 8, 5, 2, // up
+	11, 14, 17, 10, 13, 16, 9, 12, 15, // down
+	36, 37, 38, 39, 40, 41, 42, 43, 44, // back
+	45, 46, 47, 48, 49, 50, 51, 52, 53, // front
+	27, 28, 29, 30, 31, 32, 33, 34, 35, // left
+	18, 19, 20, 21, 22, 23, 24, 25, 26, // right
+];
+
+const T_S_LR2: CubeData = [
+	2, 1, 0, 5, 4, 3, 8, 7, 6, // up
+	11, 10, 9, 14, 13, 12, 17, 16, 15, // down
+	20, 19, 18, 23, 22, 21, 26, 25, 24, // back
+	29, 28, 27, 32, 31, 30, 35, 34, 33, // front
+	47, 46, 45, 50, 49, 48, 53, 52, 51, // left
+	38, 37, 36, 41, 40, 39, 44, 43, 42, // right
 ];
 
 pub const NUM_SYMMETRIES: usize = 48;
 
 pub const fn generate_symmetries() -> [CubeData; NUM_SYMMETRIES] {
+	const BASE_SYMMETRY: [CubeData; 4] = [T_S_URF3, T_S_F2, T_S_U4, T_S_LR2];
 	let mut out = [[0; CUBEDATA_LEN]; NUM_SYMMETRIES];
 
 	const_for!(x1 in 0..3 => {
