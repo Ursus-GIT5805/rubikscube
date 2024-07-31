@@ -152,13 +152,13 @@ fn convert_vec_to_transformation(turns: &Vec<Turn>) -> CubeData {
 #[derive(thiserror::Error, Debug)]
 pub enum FromStrError {
 	#[error("The given string does not have length {}", CUBEDATA_LEN)]
-	InvalidLength,
+	Length,
 	#[error("The corner at position {0} has a invalid color combination")]
-	InvalidCorner(Corner),
+	Corner(Corner),
 	#[error("The corner at position {0} has a invalid color permutation")]
-	InvalidCornerOrder(Corner),
+	CornerOrder(Corner),
 	#[error("The edge at position {0} has a invalid color combination")]
-	InvalidEdge(Edge),
+	Edge(Edge),
 }
 
 impl FromStr for ArrayCube {
@@ -166,7 +166,7 @@ impl FromStr for ArrayCube {
 
 	fn from_str(s: &str) -> Result<Self, Self::Err> {
 		if s.len() != CUBEDATA_LEN {
-			return Err(FromStrError::InvalidLength);
+			return Err(FromStrError::Length);
 		}
 
 		let mut cube = ArrayCube::new();
@@ -184,7 +184,7 @@ impl FromStr for ArrayCube {
 		for pos in Corner::iter() {
 			let (c, o) = match cube.get_corner_at_pos(pos) {
 				Some(v) => v,
-				None => return Err(FromStrError::InvalidCorner(pos)),
+				None => return Err(FromStrError::Corner(pos)),
 			};
 
 			// The 3 indices to write to
@@ -197,7 +197,7 @@ impl FromStr for ArrayCube {
 				if cube.data[idx] as usize / CUBE_AREA == cols[colidx] / CUBE_AREA {
 					cube.data[idx] = cols[colidx] as u8;
 				} else {
-					return Err(FromStrError::InvalidCornerOrder(pos));
+					return Err(FromStrError::CornerOrder(pos));
 				}
 			}
 		}
@@ -205,7 +205,7 @@ impl FromStr for ArrayCube {
 		for pos in Edge::iter() {
 			let (e, o) = match cube.get_edge_at_pos(pos) {
 				Some(v) => v,
-				None => return Err(FromStrError::InvalidEdge(pos)),
+				None => return Err(FromStrError::Edge(pos)),
 			};
 
 			// The 2 indices to write to
