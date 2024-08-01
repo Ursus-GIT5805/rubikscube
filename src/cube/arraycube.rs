@@ -290,6 +290,21 @@ pub const fn edge_to_indices(e: Edge) -> (usize, usize) {
 	}
 }
 
+/// The cube is printed laid out in a grid.
+/// This grid converts the grid coordinate to the index
+/// of the cube data
+pub const DISPLAY_GRID: [[usize; 4 * CUBE_DIM]; 3 * CUBE_DIM] = [
+	[99, 99, 99, 0, 1, 2, 99, 99, 99, 99, 99, 99],
+	[99, 99, 99, 3, 4, 5, 99, 99, 99, 99, 99, 99],
+	[99, 99, 99, 6, 7, 8, 99, 99, 99, 99, 99, 99],
+	[36, 37, 38, 27, 28, 29, 45, 46, 47, 18, 19, 20],
+	[39, 40, 41, 30, 31, 32, 48, 49, 50, 21, 22, 23],
+	[42, 43, 44, 33, 34, 35, 51, 52, 53, 24, 25, 26],
+	[99, 99, 99, 9, 10, 11, 99, 99, 99, 99, 99, 99],
+	[99, 99, 99, 12, 13, 14, 99, 99, 99, 99, 99, 99],
+	[99, 99, 99, 15, 16, 17, 99, 99, 99, 99, 99, 99],
+];
+
 impl ArrayCube {
 	pub fn new() -> Self {
 		Self::default()
@@ -304,54 +319,19 @@ impl ArrayCube {
 
 	/// Print the cube in the *standard output* with ANSI-colors
 	pub fn print(&self) {
-		// Generate a space depending on the size of CUBE_DIM
-		let space: String = " ".repeat(2 * CUBE_DIM + 1);
-
-		const fn help(side: Side, x: usize, y: usize) -> usize {
-			(side as usize) * CUBE_AREA + x + y * CUBE_DIM
-		}
-
-		// Print Up-side
-		for j in 0..CUBE_DIM {
-			print!("{}", space);
-			for i in 0..CUBE_DIM {
-				print!(
-					"{}▀ ",
-					get_ansii_color(self.data[help(UP, i, j)] / CUBE_AREA as u8)
-				);
-			}
-			println!();
-		}
-
-		// Print Left, Front, Right, Back
-		const SIDES: [u8; 4] = [LEFT, FRONT, RIGHT, BACK];
-		for j in 0..CUBE_DIM {
-			for s in SIDES {
-				for i in 0..CUBE_DIM {
-					print!(
-						"{}▄ ",
-						get_ansii_color(self.data[help(s, i, j)] / CUBE_AREA as u8)
-					);
+		for row in DISPLAY_GRID.iter() {
+			for entry in row.iter() {
+				if *entry < CUBEDATA_LEN {
+					print!("{}▀ ", get_ansii_color(self.data[*entry] / CUBE_AREA as u8));
+				} else {
+					print!("  ");
 				}
-				print!(" ");
 			}
 			println!();
 		}
-		println!();
 
-		// Print Down-side
-		for j in 0..CUBE_DIM {
-			print!("{}", space);
-			for i in 0..CUBE_DIM {
-				print!(
-					"{}▀ ",
-					get_ansii_color(self.data[help(DOWN, i, j)] / CUBE_AREA as u8)
-				);
-			}
-			println!();
-		}
 		// Reset ansii color
-		println!("\x1b[00m");
+		print!("\x1b[00m");
 	}
 
 	/// Apply the given sequence of turns.

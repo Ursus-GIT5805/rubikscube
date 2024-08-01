@@ -4,27 +4,12 @@ use pancurses::*;
 
 use crate::cube::*;
 
-use self::arraycube::ArrayCube;
+use self::arraycube::{ArrayCube, DISPLAY_GRID};
 
 const OFFSET_X: i32 = 2;
 const OFFSET_Y: i32 = 1;
 
 const CUBEDATA_LEN: usize = CUBE_AREA * 6;
-
-/// The cube is laid out in a grid.
-/// This grid converts the grid coordinate to the index
-/// of the cube data
-const GRID: [[usize; 4 * CUBE_DIM]; 3 * CUBE_DIM] = [
-	[99, 99, 99, 0, 1, 2, 99, 99, 99, 99, 99, 99],
-	[99, 99, 99, 3, 4, 5, 99, 99, 99, 99, 99, 99],
-	[99, 99, 99, 6, 7, 8, 99, 99, 99, 99, 99, 99],
-	[36, 37, 38, 27, 28, 29, 45, 46, 47, 18, 19, 20],
-	[39, 40, 41, 30, 31, 32, 48, 49, 50, 21, 22, 23],
-	[42, 43, 44, 33, 34, 35, 51, 52, 53, 24, 25, 26],
-	[99, 99, 99, 9, 10, 11, 99, 99, 99, 99, 99, 99],
-	[99, 99, 99, 12, 13, 14, 99, 99, 99, 99, 99, 99],
-	[99, 99, 99, 15, 16, 17, 99, 99, 99, 99, 99, 99],
-];
 
 fn draw_at(win: &Window, x: i32, y: i32, c: &str) {
 	win.mv(y, x);
@@ -33,8 +18,8 @@ fn draw_at(win: &Window, x: i32, y: i32, c: &str) {
 
 /// Draw one side of a cube
 fn draw_facelet(win: &Window, x: usize, y: usize, data: &[u8]) {
-	let col = if GRID[y][x] < CUBEDATA_LEN {
-		data[GRID[y][x]] as u32
+	let col = if DISPLAY_GRID[y][x] < CUBEDATA_LEN {
+		data[DISPLAY_GRID[y][x]] as u32
 	} else {
 		return;
 	};
@@ -98,12 +83,15 @@ fn init(cube: &[u8], win: &Window) {
 	win.attron(COLOR_PAIR(1));
 	draw_cursor(win, 4, 4, false);
 
+	update_legality_message(win, cube);
+
 	win.mv(3 * CUBE_DIM as i32 * 3 + 4, 0);
+
+	win.attron(COLOR_PAIR(1));
+
 	win.printw("Move cursor with (i,j,k,l)\n");
 	win.printw("Set the color with (w,y|g,b|o,r)\n");
 	win.printw("Clear the cube with (shift+)C\n\n");
-
-	win.attron(COLOR_PAIR(1));
 
 	win.printw("Press (shift+)Q to quit, if the cube is solvable.");
 	win.refresh();
@@ -158,28 +146,28 @@ pub fn interactive_mode() -> String {
 				match c {
 					// Cursor up
 					'i' => {
-						if y > 0 && GRID[y - 1][x] < CUBEDATA_LEN {
+						if y > 0 && DISPLAY_GRID[y - 1][x] < CUBEDATA_LEN {
 							ny -= 1;
 						}
 					}
 
 					// Cursor down
 					'k' => {
-						if y + 1 < GRID.len() && GRID[y + 1][x] < CUBEDATA_LEN {
+						if y + 1 < DISPLAY_GRID.len() && DISPLAY_GRID[y + 1][x] < CUBEDATA_LEN {
 							ny += 1;
 						}
 					}
 
 					// Cursor left
 					'j' => {
-						if x > 0 && GRID[y][x - 1] < CUBEDATA_LEN {
+						if x > 0 && DISPLAY_GRID[y][x - 1] < CUBEDATA_LEN {
 							nx -= 1;
 						}
 					}
 
 					// Cursor right
 					'l' => {
-						if x + 1 < GRID[y].len() && GRID[y][x + 1] < CUBEDATA_LEN {
+						if x + 1 < DISPLAY_GRID[y].len() && DISPLAY_GRID[y][x + 1] < CUBEDATA_LEN {
 							nx += 1;
 						}
 					}
@@ -194,12 +182,13 @@ pub fn interactive_mode() -> String {
 							_ => panic!("Undefined behaviour"),
 						};
 
-						let idx = GRID[y][x];
+						let idx = DISPLAY_GRID[y][x];
 						// Check that it isn't the cener piece and else apply it
 						if idx % CUBE_AREA != 4 {
 							data[idx] = side;
 							draw_facelet(&win, x, y, &data);
 							update_legality_message(&win, &data);
+							win.mv(100, 100);
 						}
 					}
 					'C' => {
