@@ -57,6 +57,7 @@ const TC_RIGHT: CornerList = [
 	(Corner::ULB, 0), (Corner::UFL, 0), (Corner::UBR, 2), (Corner::DBL, 0),
 ];
 
+/// Chain two corner transformations together
 const fn chain_corners(t1: CornerList, t2: CornerList) -> CornerList {
 	let mut out = TC_BASE;
 
@@ -88,6 +89,7 @@ const fn chain_corners(t1: CornerList, t2: CornerList) -> CornerList {
 	out
 }
 
+/// Generate the transformation table for the corners
 const fn generate_corner_transform_table() -> [[CornerList; NUM_TURNWISES]; NUM_TURNTYPES] {
 	const BASE: [CornerList; NUM_SIDES] = [TC_UP, TC_DOWN, TC_BACK, TC_FRONT, TC_LEFT, TC_RIGHT];
 
@@ -149,6 +151,7 @@ const TE_RIGHT: EdgeList = [
 	(Edge::DR,0), (Edge::UR,0), (Edge::BL,0), (Edge::FL,0),
 ];
 
+/// Chain two edge transformations together
 const fn chain_edges(t1: EdgeList, t2: EdgeList) -> EdgeList {
 	let mut out = TE_BASE;
 
@@ -162,6 +165,7 @@ const fn chain_edges(t1: EdgeList, t2: EdgeList) -> EdgeList {
 	out
 }
 
+/// Generate the transformation table for the corners
 const fn generate_edge_transform_table() -> [[EdgeList; NUM_TURNWISES]; NUM_TURNTYPES] {
 	const BASE: [EdgeList; NUM_SIDES] = [TE_UP, TE_DOWN, TE_BACK, TE_FRONT, TE_LEFT, TE_RIGHT];
 
@@ -265,7 +269,7 @@ pub const fn generate_symmetries() -> [(CornerList, EdgeList); NUM_SYMMETRIES] {
 	out
 }
 
-pub const SYMMETRIES: [(CornerList, EdgeList); NUM_SYMMETRIES] = generate_symmetries();
+const SYMMETRIES: [(CornerList, EdgeList); NUM_SYMMETRIES] = generate_symmetries();
 
 const fn is_c_base(c: CornerList) -> bool {
 	const_for!(i in 0..NUM_CORNERS => {
@@ -285,7 +289,7 @@ const fn is_e_base(c: EdgeList) -> bool {
 	true
 }
 
-pub const fn generate_symmetry_inverse_list() -> [usize; NUM_SYMMETRIES] {
+const fn generate_symmetry_inverse_list() -> [usize; NUM_SYMMETRIES] {
 	let mut out = [NUM_SYMMETRIES; NUM_SYMMETRIES];
 
 	const_for!(i in 0..NUM_SYMMETRIES => {
@@ -331,18 +335,15 @@ pub fn get_symmetry_inv(cube: &CubieCube, sym: usize) -> CubieCube {
 
 // ==========
 
-/// Generate a power list where v[i] = base^i from 0..N (exclusive)
-const fn pow_list<const N: usize>(base: usize) -> [usize; N] {
-	let mut out = [1; N];
-	const_for!(i in 1..N => { out[i] = out[i-1] * base; });
-	out
-}
+/// The number of different orientation configuration of corners
+pub const CORNER_ORI: usize = 2187; // 3^7
+/// The number of different orientation configuration of edges
+pub const EDGE_ORI: usize = 2048; // 2^11
 
-pub const CORNER_ORI: usize = 2187;
-pub const EDGE_ORI: usize = 2048;
-
-pub const CORNER_PERM: usize = 40320;
-pub const EDGE_PERM: usize = 479001600;
+/// The number of permutations the corners can form
+pub const CORNER_PERM: usize = 40320; // 8!
+/// The number of permutations the edges can form
+pub const EDGE_PERM: usize = 479001600; // 12!
 
 impl Default for CubieCube {
 	fn default() -> Self {
@@ -359,12 +360,12 @@ impl CubieCube {
 	}
 
 	/// Get the corner and orientation at position 'c'
-	pub const fn corner(&self, c: Corner) -> (Corner, Ori) {
+	pub const fn corner_at(&self, c: Corner) -> (Corner, Ori) {
 		self.corners[c as usize]
 	}
 
 	/// Get the edge and orientation at position 'e'
-	pub const fn edge(&self, e: Edge) -> (Edge, Ori) {
+	pub const fn edge_at(&self, e: Edge) -> (Edge, Ori) {
 		self.edges[e as usize]
 	}
 
@@ -423,15 +424,12 @@ impl CubieCube {
 
 	/// Return the cube's corner orientation coordinate
 	pub fn get_corner_orientation_coord(&self) -> usize {
-		const POW: [usize; NUM_CORNERS] = pow_list::<NUM_CORNERS>(3);
-
 		let mut x = 0;
-		for corner in Corner::iter() {
-			let (_c, o) = self.corner(corner);
-			if 6 < corner as usize {
-				continue;
-			}
-			x += o as usize * POW[corner as usize];
+		let mut pow = 1;
+		for corner in Corner::iter().take(NUM_CORNERS - 1) {
+			let (_c, o) = self.corner_at(corner);
+			x += o as usize * pow;
+			pow *= 3;
 		}
 
 		x
@@ -439,12 +437,12 @@ impl CubieCube {
 
 	/// Return the cube's edges orientation coordinate
 	pub fn get_edge_orientation_coord(&self) -> usize {
-		const POW: [usize; NUM_EDGES] = pow_list::<NUM_EDGES>(2);
-
 		let mut x = 0;
+		let mut pow = 1;
 		for edge in Edge::iter().take(NUM_EDGES - 1) {
-			let (_e, o) = self.edge(edge);
-			x += o as usize * POW[edge as usize];
+			let (_e, o) = self.edge_at(edge);
+			x += o as usize * pow;
+			pow *= 2;
 		}
 
 		x
@@ -457,7 +455,7 @@ impl CubieCube {
 		const UDSLICE: [Edge; 4] = [Edge::FR, Edge::BR, Edge::BL, Edge::FL];
 		let chosen: Vec<_> = Edge::iter()
 			.map(|pos| {
-				let (e, _) = self.edge(pos);
+				let (e, _) = self.edge_at(pos);
 				UDSLICE.contains(&e)
 			})
 			.collect();
@@ -490,16 +488,20 @@ impl CubieCube {
 
 	// ===== Utility functions =====
 
+	/// Apply the given transformations
 	pub fn apply_transformation(&mut self, tc: CornerList, te: EdgeList) {
 		self.corners = chain_corners(self.corners, tc);
 		self.edges = chain_edges(self.edges, te);
 	}
 
+	/// Return true if the cube is solved
 	pub fn is_solved(&self) -> bool {
 		self.edges == TE_BASE && self.corners == TC_BASE
 	}
 
-	pub fn check_validity(&self) -> Result<(), CubeError> {
+	/// Check the solvability of the cube and return an error type containing
+	/// the cause of the impossibility if it's not solvable
+	pub fn check_solvability(&self) -> Result<(), CubeError> {
 		// The sum of the corner orientations have to be divisible by 3
 		let cori = self.corners.iter().map(|(_, o)| o).sum::<Ori>();
 		if cori % 3 != 0 {
@@ -544,8 +546,9 @@ impl CubieCube {
 		Ok(())
 	}
 
+	/// Return true if the cube is solvable
 	pub fn is_solvable(&self) -> bool {
-		self.check_validity().is_ok()
+		self.check_solvability().is_ok()
 	}
 }
 
@@ -588,30 +591,29 @@ impl From<CubieCube> for arraycube::ArrayCube {
 		let mut out = arraycube::ArrayCube::new();
 
 		for pos in Corner::iter() {
-			let (c, o) = val.corner(pos);
+			let (c, o) = val.corner_at(pos);
 
 			// The 3 indices to write to
-			let (i1, i2, i3) = corner_to_indices(pos);
+			let indices: [usize; 3] = corner_to_indices(pos).into();
 			// The actual 3 colors there
-			let (c1, c2, c3) = corner_to_indices(c);
-			let cols = [c1, c2, c3];
+			let cols: [usize; 3] = corner_to_indices(c).into();
 
-			out.data[i1] = cols[(3 - o) as usize % 3] as u8;
-			out.data[i2] = cols[(4 - o) as usize % 3] as u8;
-			out.data[i3] = cols[(5 - o) as usize % 3] as u8;
+			for (i, idx) in indices.into_iter().enumerate() {
+				out.data[idx] = cols[(3 + i - o as usize) % 3] as u8;
+			}
 		}
 
 		for pos in Edge::iter() {
-			let (e, o) = val.edge(pos);
+			let (e, o) = val.edge_at(pos);
 
 			// The 2 indices to write to
-			let (i1, i2) = edge_to_indices(pos);
+			let indices: [usize; 2] = edge_to_indices(pos).into();
 			// The actual 2 colors there
-			let (c1, c2) = edge_to_indices(e);
-			let cols = [c1, c2];
+			let cols: [usize; 2] = edge_to_indices(e).into();
 
-			out.data[i1] = cols[o as usize % 2] as u8;
-			out.data[i2] = cols[(1 + o) as usize % 2] as u8;
+			for (i, idx) in indices.into_iter().enumerate() {
+				out.data[idx] = cols[(2 + i - o as usize) % 2] as u8;
+			}
 		}
 
 		out

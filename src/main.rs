@@ -29,6 +29,7 @@ enum SolveAlgorithm {
 #[command(author, version, about, long_about = None)]
 struct Args {
 	/// Enter the cube interactively
+	/// Entered sequences or shuffles are ignored
 	#[arg(short, long, default_value_t = false)]
 	interactive: bool,
 
@@ -150,7 +151,7 @@ fn main() -> std::io::Result<()> {
 			.try_into()
 			.expect("The given cube couldn't be converted properly");
 
-		if let Err(e) = cubie.check_validity() {
+		if let Err(e) = cubie.check_solvability() {
 			panic!("The given cube is not solvable: {}", e);
 		}
 

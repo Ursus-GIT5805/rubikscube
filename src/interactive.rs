@@ -11,11 +11,6 @@ const OFFSET_Y: i32 = 1;
 
 const CUBEDATA_LEN: usize = CUBE_AREA * 6;
 
-fn draw_at(win: &Window, x: i32, y: i32, c: &str) {
-	win.mv(y, x);
-	win.printw(c);
-}
-
 /// Draw one side of a cube
 fn draw_facelet(win: &Window, x: usize, y: usize, data: &[u8]) {
 	let col = if DISPLAY_GRID[y][x] < CUBEDATA_LEN {
@@ -28,8 +23,8 @@ fn draw_facelet(win: &Window, x: usize, y: usize, data: &[u8]) {
 	let cy = y as i32 * 3 + OFFSET_Y;
 
 	win.attron(COLOR_PAIR(col + 1));
-	draw_at(win, cx, cy, "███");
-	draw_at(win, cx, cy + 1, "▀▀▀");
+	win.mvprintw(cy, cx, "███");
+	win.mvprintw(cy + 1, cx, "▀▀▀");
 }
 
 /// Draw the entire cube
@@ -49,10 +44,8 @@ fn draw_cursor(win: &Window, x: usize, y: usize, clear: bool) {
 	let c = if clear { " " } else { "|" };
 
 	win.attron(COLOR_PAIR(1));
-	draw_at(win, cx - 1, cy, c);
-	draw_at(win, cx - 1, cy + 1, c);
-	draw_at(win, cx + 3, cy, c);
-	draw_at(win, cx + 3, cy + 1, c);
+	win.mvprintw(cy, cx - 1, c);
+	win.mvprintw(cy, cx + 3, c);
 }
 
 fn get_cube(data: &[u8]) -> Result<ArrayCube, arraycube::FromStrError> {
@@ -61,13 +54,19 @@ fn get_cube(data: &[u8]) -> Result<ArrayCube, arraycube::FromStrError> {
 }
 
 /// Draw the entire screen
-fn init(cube: &[u8], win: &Window) {
+fn init(win: &Window, cube: &[u8]) {
+	start_color();
+
+	noecho();
+	curs_set(0);
+
 	// Set better colors
 	init_color(COLOR_WHITE, 1000, 1000, 1000);
 	init_color(COLOR_YELLOW, 1000, 1000, 0);
-	init_color(COLOR_GREEN, 0, 900, 0);
-	init_color(COLOR_RED, 1000, 0, 0);
-	init_color(COLOR_MAGENTA, 900, 450, 0);
+	init_color(COLOR_GREEN, 0, 600, 0);
+	init_color(COLOR_BLUE, 67, 67, 933);
+	init_color(COLOR_RED, 933, 0, 0);
+	init_color(COLOR_MAGENTA, 1000, 612, 12); // it's orange, there is no COLOR_ORANGE
 
 	// Init color pairs
 	init_pair(1, COLOR_WHITE, COLOR_BLACK); // white
@@ -83,7 +82,7 @@ fn init(cube: &[u8], win: &Window) {
 	win.attron(COLOR_PAIR(1));
 	draw_cursor(win, 4, 4, false);
 
-	update_legality_message(win, cube);
+	update_solvability_message(win, cube);
 
 	win.mv(3 * CUBE_DIM as i32 * 3 + 4, 0);
 
@@ -94,13 +93,13 @@ fn init(cube: &[u8], win: &Window) {
 	win.printw("Clear the cube with (shift+)C\n\n");
 
 	win.printw("Press (shift+)Q to quit, if the cube is solvable.");
-	win.refresh();
 }
 
-fn update_legality_message(win: &Window, data: &[u8]) {
+/// Update the message stating the solvability of the cube
+fn update_solvability_message(win: &Window, data: &[u8]) {
 	let res: Result<(), String> = match get_cube(data) {
 		Ok(array) => match TryInto::<cubiecube::CubieCube>::try_into(array) {
-			Ok(c) => match c.check_validity() {
+			Ok(c) => match c.check_solvability() {
 				Ok(_) => Ok(()),
 				Err(e) => Err(e.to_string()),
 			},
@@ -126,16 +125,13 @@ fn update_legality_message(win: &Window, data: &[u8]) {
 
 /// Handle the interactive mode
 pub fn interactive_mode() -> String {
-	let mut data: Vec<_> = (0..54).map(|i| i / 9).collect();
+	let mut data: Vec<_> = (0..CUBEDATA_LEN as u8).map(|i| i / 9).collect();
 
 	let mut x = 4;
 	let mut y = 4;
 
 	let win = initscr();
-
-	start_color();
-	noecho();
-	init(&data, &win);
+	init(&win, &data);
 
 	loop {
 		if let Some(key) = win.getch() {
@@ -187,8 +183,7 @@ pub fn interactive_mode() -> String {
 						if idx % CUBE_AREA != 4 {
 							data[idx] = side;
 							draw_facelet(&win, x, y, &data);
-							update_legality_message(&win, &data);
-							win.mv(100, 100);
+							update_solvability_message(&win, &data);
 						}
 					}
 					'C' => {
@@ -202,13 +197,12 @@ pub fn interactive_mode() -> String {
 			}
 
 			if nx != x || ny != y {
-				draw_cursor(&win, x, y, true);
-				draw_cursor(&win, nx, ny, false);
+				draw_cursor(&win, x, y, true); // clear old cursor
+				draw_cursor(&win, nx, ny, false); // draw new cursor
 
 				x = nx;
 				y = ny;
 			}
-			win.mv(100, 100);
 		}
 	}
 

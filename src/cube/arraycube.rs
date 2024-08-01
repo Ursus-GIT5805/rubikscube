@@ -137,9 +137,10 @@ const fn generate_transformation_table() -> [[CubeData; NUM_TURNWISES]; NUM_TURN
 	out
 }
 
-// The transformation matrices, sorted into an multidimensional list
+/// All the transformation matrices for the ArrayCube
 const TRANSFORM: [[CubeData; NUM_TURNWISES]; NUM_TURNTYPES] = generate_transformation_table();
 
+/// Create a transformation matrix from the given turns
 fn convert_vec_to_transformation(turns: &Vec<Turn>) -> CubeData {
 	let mut out = T_BASE;
 
@@ -228,7 +229,11 @@ impl FromStr for ArrayCube {
 
 impl From<ArrayCube> for String {
 	fn from(val: ArrayCube) -> Self {
-		val.data.iter().map(|c| ((c / CUBE_AREA as u8) + b'a') as char).collect()
+		// The string saves the color
+		val.data
+			.iter()
+			.map(|c| ((c / CUBE_AREA as u8) + b'a') as char)
+			.collect()
 	}
 }
 
@@ -240,7 +245,7 @@ impl RubiksCube for ArrayCube {
 	}
 }
 
-/// Return the indices given the corner c as a position.
+/// Return the indices for CubeData given the corner c as a position.
 pub const fn corner_to_indices(c: Corner) -> (usize, usize, usize) {
 	// Return index of (x/y) at the given side
 	const fn help(side: Side, x: usize, y: usize) -> usize {
@@ -248,8 +253,7 @@ pub const fn corner_to_indices(c: Corner) -> (usize, usize, usize) {
 	}
 
 	// Get the 3 indices of the corner
-	// Note: the Corner::URF means, first Up, then Right, then Front,
-	// (The order of the characters are relevant!)
+	// Note: the Corner::URF means: First Up-Index, then Right-Index, then Front-Index of the corner
 	match c {
 		Corner::URF => (help(UP, 2, 2), help(RIGHT, 0, 0), help(FRONT, 2, 0)),
 		Corner::UBR => (help(UP, 2, 0), help(BACK, 0, 0), help(RIGHT, 2, 0)),
@@ -263,7 +267,7 @@ pub const fn corner_to_indices(c: Corner) -> (usize, usize, usize) {
 	}
 }
 
-/// Return the indices given the edge e as a position.
+/// Return the indices for CubeData given the edge e as a position.
 pub const fn edge_to_indices(e: Edge) -> (usize, usize) {
 	// Return index of (x/y) at the given side
 	const fn help(side: Side, x: usize, y: usize) -> usize {
@@ -271,7 +275,7 @@ pub const fn edge_to_indices(e: Edge) -> (usize, usize) {
 	}
 
 	// Get the 2 indices of the edge
-	// Note that Edge::UF means: first the Up side, then the Front side
+	// Note that e.g Edge::UF means: First the Up-Index, then the Front-Index of the Edge
 	match e {
 		Edge::UF => (help(UP, 1, 2), help(FRONT, 1, 0)),
 		Edge::UR => (help(UP, 2, 1), help(RIGHT, 1, 0)),
@@ -293,14 +297,15 @@ pub const fn edge_to_indices(e: Edge) -> (usize, usize) {
 /// When, printed, the cube is laid out in a grid.
 /// This grid converts the grid coordinate to the index
 /// of the cube data
+#[rustfmt::skip]
 pub const DISPLAY_GRID: [[usize; 4 * CUBE_DIM]; 3 * CUBE_DIM] = [
-	[99, 99, 99, 0, 1, 2, 99, 99, 99, 99, 99, 99],
-	[99, 99, 99, 3, 4, 5, 99, 99, 99, 99, 99, 99],
-	[99, 99, 99, 6, 7, 8, 99, 99, 99, 99, 99, 99],
+	[99, 99, 99,  0,  1,  2, 99, 99, 99, 99, 99, 99],
+	[99, 99, 99,  3,  4,  5, 99, 99, 99, 99, 99, 99],
+	[99, 99, 99,  6,  7,  8, 99, 99, 99, 99, 99, 99],
 	[36, 37, 38, 27, 28, 29, 45, 46, 47, 18, 19, 20],
 	[39, 40, 41, 30, 31, 32, 48, 49, 50, 21, 22, 23],
 	[42, 43, 44, 33, 34, 35, 51, 52, 53, 24, 25, 26],
-	[99, 99, 99, 9, 10, 11, 99, 99, 99, 99, 99, 99],
+	[99, 99, 99,  9, 10, 11, 99, 99, 99, 99, 99, 99],
 	[99, 99, 99, 12, 13, 14, 99, 99, 99, 99, 99, 99],
 	[99, 99, 99, 15, 16, 17, 99, 99, 99, 99, 99, 99],
 ];
@@ -310,6 +315,7 @@ impl ArrayCube {
 		Self::default()
 	}
 
+	/// Apply a given transformation to the cube
 	pub fn apply_transform(&mut self, trans: CubeData) {
 		let bef = self.data;
 		for i in 0..CUBEDATA_LEN {
@@ -350,8 +356,8 @@ impl ArrayCube {
 	/// When you turn the corner piece to it's original place, without turning the front/down, left/right side
 	/// an odd number of quarters, the orientation is as follows:
 	/// 0, if it's correctly in it's place
-	/// 1, if it's rotated once in clockwise
-	/// 2, if not 0 or 1, i.e it's rotated counterclockwise once.
+	/// 1, if it's twisted once in clockwise direction.
+	/// 2, if it's twisted counterclockwise once.
 	pub fn get_corner_at_pos(&self, pos: Corner) -> Option<(Corner, usize)> {
 		// Get indices of the corner
 		let idx: [usize; 3] = corner_to_indices(pos).into();
@@ -375,7 +381,7 @@ impl ArrayCube {
 
 	/// Returns the edge at the position and it's orientation
 	/// If you would put the edge piece to it's home place without turning the front/back side an
-	/// odd number of times, the orientation is:
+	/// odd number of quarters, the orientation is:
 	/// 0, if it's correctly in it's place
 	/// 1, if it's wrong in it's place
 	pub fn get_edge_at_pos(&self, pos: Edge) -> Option<(Edge, usize)> {
@@ -400,6 +406,7 @@ impl ArrayCube {
 		Some((edge, ori as usize))
 	}
 
+	/// Return true if the cube is solved
 	pub fn is_solved(&self) -> bool {
 		self.data == T_BASE
 	}
@@ -467,8 +474,8 @@ const T_S_LR2: CubeData = [
 
 pub const NUM_SYMMETRIES: usize = 48;
 
-pub const fn generate_symmetries() -> [CubeData; NUM_SYMMETRIES] {
-	const BASE_SYMMETRY: [CubeData; 4] = [T_S_URF3, T_S_F2, T_S_U4, T_S_LR2];
+/// Generate all transformation based from the base symmetries
+const fn generate_symmetries() -> [CubeData; NUM_SYMMETRIES] {
 	let mut out = [[0; CUBEDATA_LEN]; NUM_SYMMETRIES];
 
 	const_for!(x1 in 0..3 => {
@@ -477,16 +484,16 @@ pub const fn generate_symmetries() -> [CubeData; NUM_SYMMETRIES] {
 				const_for!(x4 in 0..2 => {
 					let mut t = T_BASE;
 					const_for!(_ in 0..x1 => {
-						t = chain_transform(t, BASE_SYMMETRY[0]);
+						t = chain_transform(t, T_S_URF3);
 					});
 					const_for!(_ in 0..x2 => {
-						t = chain_transform(t, BASE_SYMMETRY[1]);
+						t = chain_transform(t, T_S_F2);
 					});
 					const_for!(_ in 0..x3 => {
-						t = chain_transform(t, BASE_SYMMETRY[2]);
+						t = chain_transform(t, T_S_U4);
 					});
 					const_for!(_ in 0..x4 => {
-						t = chain_transform(t, BASE_SYMMETRY[3]);
+						t = chain_transform(t, T_S_LR2);
 					});
 
 					let idx = 16*x1 + 8*x2 + 2*x3 + x4;
@@ -500,9 +507,12 @@ pub const fn generate_symmetries() -> [CubeData; NUM_SYMMETRIES] {
 	out
 }
 
-pub const SYMMETRIES: [CubeData; NUM_SYMMETRIES] = generate_symmetries();
+/// List of all symmetry transformations
+const SYMMETRIES: [CubeData; NUM_SYMMETRIES] = generate_symmetries();
 
-pub const fn generate_symmetry_inverse_list() -> [usize; NUM_SYMMETRIES] {
+/// Generate the list of indices where OUT[i] is the index of the inverse of
+/// SYM[i]. That is, SYM[i] * SYM[OUT[i]] = T_BASE, for SYM = SYMMETRIES
+const fn generate_symmetry_inverse_list() -> [usize; NUM_SYMMETRIES] {
 	let mut out = [NUM_SYMMETRIES; NUM_SYMMETRIES];
 	const SYM: [CubeData; NUM_SYMMETRIES] = generate_symmetries();
 
@@ -519,7 +529,7 @@ pub const fn generate_symmetry_inverse_list() -> [usize; NUM_SYMMETRIES] {
 }
 
 /// Symmetry index of 'i' is SYM[i]
-pub const SYMMETRY_INVERSE: [usize; NUM_SYMMETRIES] = generate_symmetry_inverse_list();
+const SYMMETRY_INVERSE: [usize; NUM_SYMMETRIES] = generate_symmetry_inverse_list();
 
 #[allow(dead_code)]
 /// Return the i-th symmetry of cube

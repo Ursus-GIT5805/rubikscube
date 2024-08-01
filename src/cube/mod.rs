@@ -14,6 +14,7 @@ pub const CUBE_AREA: usize = CUBE_DIM * CUBE_DIM;
 /// The number of sides of a cube
 pub const NUM_SIDES: usize = 6;
 
+// TODO: Change this to an enum
 type Side = u8;
 
 pub const UP: u8 = 0;
@@ -146,9 +147,9 @@ impl Corner {
 		// Match the hash
 		let res = match hash {
 			// Note that
-			// AA checks for left/right
+			// AA checks for right/left
 			// BB for front/back
-			// CC for up/down
+			// CC for down/up
 			//
 			// AA_BB_CC
 			0b_01_10_01 => Self::UFL,
