@@ -15,26 +15,27 @@ pub const CUBE_AREA: usize = CUBE_DIM * CUBE_DIM;
 pub const NUM_SIDES: usize = 6;
 
 // TODO: Change this to an enum
-type Side = u8;
-
-pub const UP: u8 = 0;
-pub const DOWN: u8 = 1;
-pub const BACK: u8 = 2;
-pub const FRONT: u8 = 3;
-pub const LEFT: u8 = 4;
-pub const RIGHT: u8 = 5;
-// pub const UNKNOWN: u8 = 6;
+#[derive(Eq, PartialEq, PartialOrd, Copy, Clone, strum::EnumCount, strum::FromRepr)]
+#[repr(u8)]
+pub enum Side {
+	// It must only contain unit fields!
+	Up,
+	Down,
+	Back,
+	Front,
+	Left,
+	Right,
+}
 
 /// Returns the ANSI-colorcode for the given side.
 pub fn get_ansii_color(side: Side) -> &'static str {
 	match side {
-		UP => "\x1b[00m",    // White
-		DOWN => "\x1b[93m",  // Yellow
-		BACK => "\x1b[32m",  // Green
-		FRONT => "\x1b[34m", // Blue
-		LEFT => "\x1b[31m",  // Red
-		RIGHT => "\x1b[33m", // Orange
-		_ => "\x1b[00m",     // Reset
+		Side::Up => "\x1b[00m",    // White
+		Side::Down => "\x1b[93m",  // Yellow
+		Side::Back => "\x1b[32m",  // Green
+		Side::Front => "\x1b[34m", // Blue
+		Side::Left => "\x1b[31m",  // Red
+		Side::Right => "\x1b[33m", // Orange
 	}
 }
 

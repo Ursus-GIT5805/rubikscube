@@ -169,14 +169,14 @@ pub fn interactive_mode() -> String {
 					}
 					'w' | 'y' | 'g' | 'b' | 'r' | 'o' => {
 						let side = match c {
-							'w' => UP,
-							'y' => DOWN,
-							'g' => BACK,
-							'b' => FRONT,
-							'r' => LEFT,
-							'o' => RIGHT,
+							'w' => Side::Up,
+							'y' => Side::Down,
+							'g' => Side::Back,
+							'b' => Side::Front,
+							'r' => Side::Left,
+							'o' => Side::Right,
 							_ => panic!("Undefined behaviour"),
-						};
+						} as u8;
 
 						let idx = DISPLAY_GRID[y][x];
 						// Check that it isn't the cener piece and else apply it

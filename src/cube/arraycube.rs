@@ -255,15 +255,47 @@ pub const fn corner_to_indices(c: Corner) -> (usize, usize, usize) {
 	// Get the 3 indices of the corner
 	// Note: the Corner::URF means: First Up-Index, then Right-Index, then Front-Index of the corner
 	match c {
-		Corner::URF => (help(UP, 2, 2), help(RIGHT, 0, 0), help(FRONT, 2, 0)),
-		Corner::UBR => (help(UP, 2, 0), help(BACK, 0, 0), help(RIGHT, 2, 0)),
-		Corner::DLF => (help(DOWN, 0, 0), help(LEFT, 2, 2), help(FRONT, 0, 2)),
-		Corner::DFR => (help(DOWN, 2, 0), help(FRONT, 2, 2), help(RIGHT, 0, 2)),
+		Corner::URF => (
+			help(Side::Up, 2, 2),
+			help(Side::Right, 0, 0),
+			help(Side::Front, 2, 0),
+		),
+		Corner::UBR => (
+			help(Side::Up, 2, 0),
+			help(Side::Back, 0, 0),
+			help(Side::Right, 2, 0),
+		),
+		Corner::DLF => (
+			help(Side::Down, 0, 0),
+			help(Side::Left, 2, 2),
+			help(Side::Front, 0, 2),
+		),
+		Corner::DFR => (
+			help(Side::Down, 2, 0),
+			help(Side::Front, 2, 2),
+			help(Side::Right, 0, 2),
+		),
 
-		Corner::ULB => (help(UP, 0, 0), help(LEFT, 0, 0), help(BACK, 2, 0)),
-		Corner::UFL => (help(UP, 0, 2), help(FRONT, 0, 0), help(LEFT, 2, 0)),
-		Corner::DRB => (help(DOWN, 2, 2), help(RIGHT, 2, 2), help(BACK, 0, 2)),
-		Corner::DBL => (help(DOWN, 0, 2), help(BACK, 2, 2), help(LEFT, 0, 2)),
+		Corner::ULB => (
+			help(Side::Up, 0, 0),
+			help(Side::Left, 0, 0),
+			help(Side::Back, 2, 0),
+		),
+		Corner::UFL => (
+			help(Side::Up, 0, 2),
+			help(Side::Front, 0, 0),
+			help(Side::Left, 2, 0),
+		),
+		Corner::DRB => (
+			help(Side::Down, 2, 2),
+			help(Side::Right, 2, 2),
+			help(Side::Back, 0, 2),
+		),
+		Corner::DBL => (
+			help(Side::Down, 0, 2),
+			help(Side::Back, 2, 2),
+			help(Side::Left, 0, 2),
+		),
 	}
 }
 
@@ -277,20 +309,20 @@ pub const fn edge_to_indices(e: Edge) -> (usize, usize) {
 	// Get the 2 indices of the edge
 	// Note that e.g Edge::UF means: First the Up-Index, then the Front-Index of the Edge
 	match e {
-		Edge::UF => (help(UP, 1, 2), help(FRONT, 1, 0)),
-		Edge::UR => (help(UP, 2, 1), help(RIGHT, 1, 0)),
-		Edge::UB => (help(UP, 1, 0), help(BACK, 1, 0)),
-		Edge::UL => (help(UP, 0, 1), help(LEFT, 1, 0)),
+		Edge::UF => (help(Side::Up, 1, 2), help(Side::Front, 1, 0)),
+		Edge::UR => (help(Side::Up, 2, 1), help(Side::Right, 1, 0)),
+		Edge::UB => (help(Side::Up, 1, 0), help(Side::Back, 1, 0)),
+		Edge::UL => (help(Side::Up, 0, 1), help(Side::Left, 1, 0)),
 
-		Edge::DF => (help(DOWN, 1, 0), help(FRONT, 1, 2)),
-		Edge::DR => (help(DOWN, 2, 1), help(RIGHT, 1, 2)),
-		Edge::DB => (help(DOWN, 1, 2), help(BACK, 1, 2)),
-		Edge::DL => (help(DOWN, 0, 1), help(LEFT, 1, 2)),
+		Edge::DF => (help(Side::Down, 1, 0), help(Side::Front, 1, 2)),
+		Edge::DR => (help(Side::Down, 2, 1), help(Side::Right, 1, 2)),
+		Edge::DB => (help(Side::Down, 1, 2), help(Side::Back, 1, 2)),
+		Edge::DL => (help(Side::Down, 0, 1), help(Side::Left, 1, 2)),
 
-		Edge::FR => (help(FRONT, 2, 1), help(RIGHT, 0, 1)),
-		Edge::BR => (help(BACK, 0, 1), help(RIGHT, 2, 1)),
-		Edge::BL => (help(BACK, 2, 1), help(LEFT, 0, 1)),
-		Edge::FL => (help(FRONT, 0, 1), help(LEFT, 2, 1)),
+		Edge::FR => (help(Side::Front, 2, 1), help(Side::Right, 0, 1)),
+		Edge::BR => (help(Side::Back, 0, 1), help(Side::Right, 2, 1)),
+		Edge::BL => (help(Side::Back, 2, 1), help(Side::Left, 0, 1)),
+		Edge::FL => (help(Side::Front, 0, 1), help(Side::Left, 2, 1)),
 	}
 }
 
@@ -325,7 +357,7 @@ impl ArrayCube {
 
 	/// Return the color at IDX
 	pub fn color_at(&self, idx: usize) -> Side {
-		self.data[idx] / CUBE_AREA as u8
+		Side::from_repr(self.data[idx] / CUBE_AREA as u8).unwrap()
 	}
 
 	/// Print the cube in the *standard output* with ANSI-colors
@@ -333,7 +365,7 @@ impl ArrayCube {
 		for row in DISPLAY_GRID.iter() {
 			for entry in row.iter() {
 				if *entry < CUBEDATA_LEN {
-					print!("{}▀ ", get_ansii_color(self.data[*entry] / CUBE_AREA as u8));
+					print!("{}▀ ", get_ansii_color(self.color_at(*entry)));
 				} else {
 					print!("  ");
 				}
@@ -369,10 +401,10 @@ impl ArrayCube {
 		let corner = Corner::parse_corner(&cols)?;
 		let ori = match corner {
 			Corner::URF | Corner::UBR | Corner::ULB | Corner::UFL => {
-				cols.iter().position(|c| *c == UP)?
+				cols.iter().position(|c| *c == Side::Up)?
 			}
 			Corner::DLF | Corner::DFR | Corner::DRB | Corner::DBL => {
-				cols.iter().position(|c| *c == DOWN)?
+				cols.iter().position(|c| *c == Side::Down)?
 			}
 		};
 
@@ -397,10 +429,10 @@ impl ArrayCube {
 		// Find out the orientation
 		// If the colors are in the order, it is not flipped
 		let ori = match edge {
-			Edge::UF | Edge::UR | Edge::UB | Edge::UL => cols[0] != UP,
-			Edge::DF | Edge::DR | Edge::DB | Edge::DL => cols[0] != DOWN,
-			Edge::FR | Edge::FL => cols[0] != FRONT,
-			Edge::BR | Edge::BL => cols[0] != BACK,
+			Edge::UF | Edge::UR | Edge::UB | Edge::UL => cols[0] != Side::Up,
+			Edge::DF | Edge::DR | Edge::DB | Edge::DL => cols[0] != Side::Down,
+			Edge::FR | Edge::FL => cols[0] != Side::Front,
+			Edge::BR | Edge::BL => cols[0] != Side::Back,
 		};
 
 		Some((edge, ori as usize))
