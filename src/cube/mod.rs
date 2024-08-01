@@ -62,12 +62,15 @@ pub enum EdgeOrientation {
 impl Edge {
 	/// Parse the edge from the given colors.
 	/// Returns None if there exist no Edge with the given colors.
-	pub fn parse_edge(col: [Side; 2]) -> Option<Self> {
+	pub fn parse_edge(col: &[Side]) -> Option<Self> {
+		#[cfg(debug_assertions)]
+		assert!(col.len() == 2);
+
 		// Create a hash out of the color
 		let hash = {
 			let mut m: usize = 0;
 			for c in col {
-				m += 1 << c as usize;
+				m |= 1 << *c as usize;
 			}
 			m
 		};
@@ -127,12 +130,15 @@ pub enum CornerOrientation {
 impl Corner {
 	/// Parse the corner from the given colors.
 	/// If no corner with the given colors exist, the function returns None.
-	pub fn parse_corner(col: [Side; 3]) -> Option<Self> {
+	pub fn parse_corner(col: &[Side]) -> Option<Self> {
+		#[cfg(debug_assertions)]
+		assert!(col.len() == 3);
+
 		// Create a hash
 		let hash = {
 			let mut m: usize = 0;
 			for c in col {
-				m += 1 << c as usize;
+				m |= 1 << *c as usize;
 			}
 			m
 		};

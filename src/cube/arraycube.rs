@@ -181,7 +181,7 @@ impl FromStr for ArrayCube {
 		}
 
 		// The center pieces have a fixed index
-		for i in (4..54).step_by(9) {
+		for i in (4..54).step_by(CUBE_AREA) {
 			cube.data[i] = i as u8;
 		}
 
@@ -228,7 +228,7 @@ impl FromStr for ArrayCube {
 
 impl From<ArrayCube> for String {
 	fn from(val: ArrayCube) -> Self {
-		val.data.iter().map(|c| ((c / 9) + b'a') as char).collect()
+		val.data.iter().map(|c| ((c / CUBE_AREA as u8) + b'a') as char).collect()
 	}
 }
 
@@ -290,7 +290,7 @@ pub const fn edge_to_indices(e: Edge) -> (usize, usize) {
 	}
 }
 
-/// The cube is printed laid out in a grid.
+/// When, printed, the cube is laid out in a grid.
 /// This grid converts the grid coordinate to the index
 /// of the cube data
 pub const DISPLAY_GRID: [[usize; 4 * CUBE_DIM]; 3 * CUBE_DIM] = [
@@ -315,6 +315,11 @@ impl ArrayCube {
 		for i in 0..CUBEDATA_LEN {
 			self.data[i] = bef[trans[i] as usize];
 		}
+	}
+
+	/// Return the color at IDX
+	pub fn color_at(&self, idx: usize) -> Side {
+		self.data[idx] / CUBE_AREA as u8
 	}
 
 	/// Print the cube in the *standard output* with ANSI-colors
@@ -348,12 +353,14 @@ impl ArrayCube {
 	/// 1, if it's rotated once in clockwise
 	/// 2, if not 0 or 1, i.e it's rotated counterclockwise once.
 	pub fn get_corner_at_pos(&self, pos: Corner) -> Option<(Corner, usize)> {
-		let (i1, i2, i3) = corner_to_indices(pos);
+		// Get indices of the corner
+		let idx: [usize; 3] = corner_to_indices(pos).into();
 
-		// Extract the colors
-		let cols = [self.data[i1] / 9, self.data[i2] / 9, self.data[i3] / 9];
+		// Get the color at the indices
+		let cols: Vec<_> = idx.into_iter().map(|i| self.color_at(i)).collect();
 
-		let corner = Corner::parse_corner(cols)?;
+		// Get the corner from the given colors
+		let corner = Corner::parse_corner(&cols)?;
 		let ori = match corner {
 			Corner::URF | Corner::UBR | Corner::ULB | Corner::UFL => {
 				cols.iter().position(|c| *c == UP)?
@@ -372,12 +379,15 @@ impl ArrayCube {
 	/// 0, if it's correctly in it's place
 	/// 1, if it's wrong in it's place
 	pub fn get_edge_at_pos(&self, pos: Edge) -> Option<(Edge, usize)> {
-		let (i1, i2) = edge_to_indices(pos);
+		// Get indices of the corner
+		let idx: [usize; 2] = edge_to_indices(pos).into();
 
-		// Extract the color
-		let cols = [self.data[i1] / 9, self.data[i2] / 9];
+		// Get the color at the indices
+		let cols: Vec<_> = idx.into_iter().map(|i| self.color_at(i)).collect();
 
-		let edge = Edge::parse_edge(cols)?;
+		// Get the edge from the given colors
+		let edge = Edge::parse_edge(&cols)?;
+
 		// Find out the orientation
 		// If the colors are in the order, it is not flipped
 		let ori = match edge {
