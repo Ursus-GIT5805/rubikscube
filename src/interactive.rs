@@ -1,3 +1,4 @@
+use std::error::Error;
 use std::str::FromStr;
 
 use pancurses::*;
@@ -95,30 +96,27 @@ fn init(win: &Window, cube: &[u8]) {
 	win.printw("Press (shift+)Q to quit, if the cube is solvable.");
 }
 
+fn get_solvability(data: &[u8]) -> Result<(), Box<dyn Error>> {
+	let arraycube = get_cube(data)?;
+	let cubie: cubiecube::CubieCube = arraycube.try_into()?;
+	cubie.check_solvability()?;
+	Ok(())
+}
+
 /// Update the message stating the solvability of the cube
 fn update_solvability_message(win: &Window, data: &[u8]) {
-	let res: Result<(), String> = match get_cube(data) {
-		Ok(array) => match TryInto::<cubiecube::CubieCube>::try_into(array) {
-			Ok(c) => match c.check_solvability() {
-				Ok(_) => Ok(()),
-				Err(e) => Err(e.to_string()),
-			},
-			Err(e) => Err(e.to_string()),
-		},
-		Err(e) => Err(e.to_string()),
-	};
-
 	win.mv(3 * CUBE_DIM as i32 * 3 + 3, 0);
 	win.clrtoeol();
 
-	match res {
+	// Display message depending on the solvabilty of the cube
+	match get_solvability(data) {
 		Ok(()) => {
 			win.attron(COLOR_PAIR(3));
 			win.printw("The cube is solvable!");
 		}
 		Err(e) => {
 			win.attron(COLOR_PAIR(5));
-			win.printw(e);
+			win.printw(e.to_string());
 		}
 	}
 }
