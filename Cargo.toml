@@ -8,14 +8,14 @@ exclude = [
 ]
 
 [dependencies]
-clap = { version = "4.4.14", features = ["derive"] }
-rand = "0.8.5"
-pancurses = { version = "0.17.0", features = ["wide"] }
-strum = { version = "0.25.0", features = ["derive"] }
-const_for = "0.1.4"
-bit-set = "0.6.0"
-lazy_static = "1.5.0"
-thiserror = "1.0.63"
+clap = { version = "*", features = ["derive"] }
+rand = "*"
+pancurses = { version = "*", features = ["wide"] }
+strum = { version = "*", features = ["derive"] }
+const_for = "*"
+bit-set = "*"
+lazy_static = "*"
+thiserror = "*"
 
 [profile.release]
 opt-level = 3
