@@ -28,6 +28,15 @@ pub enum TurnType {
 	F, // Front
 	L, // Left
 	R, // Right
+
+	// Advanced turntypes
+	M, // R * L' (middle)
+	E, // D * U' (equator)
+	S, // B * F' (side)
+
+	MC, // R * L (middle counterdirected)
+	EC, // D * U (equator counterdirected)
+	SC, // B * F (side counterdirected)
 }
 
 /// Total number of turntypes

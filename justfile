@@ -1,5 +1,9 @@
 alias t := test
 alias c := commit
+alias fmt := format
+
+format:
+	cargo fmt --all
 
 lint:
 	cargo clippy --all -- --deny warnings

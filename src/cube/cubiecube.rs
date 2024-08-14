@@ -101,6 +101,27 @@ const fn generate_corner_transform_table() -> [[CornerList; NUM_TURNWISES]; NUM_
 		out[i][2] = chain_corners(out[i][0], out[i][1]);
 	});
 
+	// Advanced turntypes
+	out[TurnType::M as usize][0] =
+		chain_corners(out[TurnType::R as usize][0], out[TurnType::L as usize][2]);
+	out[TurnType::E as usize][0] =
+		chain_corners(out[TurnType::D as usize][0], out[TurnType::U as usize][2]);
+	out[TurnType::S as usize][0] =
+		chain_corners(out[TurnType::B as usize][0], out[TurnType::F as usize][2]);
+
+	out[TurnType::MC as usize][0] =
+		chain_corners(out[TurnType::R as usize][0], out[TurnType::L as usize][0]);
+	out[TurnType::EC as usize][0] =
+		chain_corners(out[TurnType::D as usize][0], out[TurnType::U as usize][0]);
+	out[TurnType::SC as usize][0] =
+		chain_corners(out[TurnType::B as usize][0], out[TurnType::F as usize][0]);
+
+	const_for!(i in NUM_SIDES..NUM_TURNTYPES => {
+		const_for!(j in 1..NUM_TURNWISES => {
+			out[i][j] = chain_corners(out[i][j-1], out[i][0]);
+		});
+	});
+
 	out
 }
 
@@ -175,6 +196,27 @@ const fn generate_edge_transform_table() -> [[EdgeList; NUM_TURNWISES]; NUM_TURN
 		out[i][0] = BASE[i];
 		out[i][1] = chain_edges(out[i][0], out[i][0]);
 		out[i][2] = chain_edges(out[i][0], out[i][1]);
+	});
+
+	// Advanced turntypes
+	out[TurnType::M as usize][0] =
+		chain_edges(out[TurnType::R as usize][0], out[TurnType::L as usize][2]);
+	out[TurnType::E as usize][0] =
+		chain_edges(out[TurnType::D as usize][0], out[TurnType::U as usize][2]);
+	out[TurnType::S as usize][0] =
+		chain_edges(out[TurnType::B as usize][0], out[TurnType::F as usize][2]);
+
+	out[TurnType::MC as usize][0] =
+		chain_edges(out[TurnType::R as usize][0], out[TurnType::L as usize][0]);
+	out[TurnType::EC as usize][0] =
+		chain_edges(out[TurnType::D as usize][0], out[TurnType::U as usize][0]);
+	out[TurnType::SC as usize][0] =
+		chain_edges(out[TurnType::B as usize][0], out[TurnType::F as usize][0]);
+
+	const_for!(i in NUM_SIDES..NUM_TURNTYPES => {
+		const_for!(j in 1..NUM_TURNWISES => {
+			out[i][j] = chain_edges(out[i][j-1], out[i][0]);
+		});
 	});
 
 	out

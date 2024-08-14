@@ -5,13 +5,13 @@ use strum::*;
 /// Simple helper struct to have keep track of the legal moves
 #[derive(Default)]
 struct TurnSet {
-	set: [bool; NUM_TURNTYPES * NUM_TURNWISES],
+	set: Vec<bool>,
 }
 
 impl TurnSet {
 	/// Create a full set with all possible turns in the set.
 	pub fn new() -> Self {
-		let set = [true; NUM_TURNTYPES * NUM_TURNWISES];
+		let set = vec![true; NUM_TURNTYPES * NUM_TURNWISES];
 		Self { set }
 	}
 
