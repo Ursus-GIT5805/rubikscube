@@ -187,3 +187,52 @@ pub enum CubeError {
 pub trait RubiksCube {
 	fn apply_turn(&mut self, turn: Turn);
 }
+
+#[cfg(test)]
+mod tests {
+	use super::{arraycube::*, cubiecube::*, turn::*, *};
+	use std::{error::Error, str::FromStr};
+
+	#[test]
+	/// Check that all advanced turntypes function as expected
+	fn check_advanced_turns() -> Result<(), Box<dyn Error>> {
+		let buildup = vec![
+			(Turn::from_str("M")?, parse_turns("R L'")?),
+			(Turn::from_str("E")?, parse_turns("D U'")?),
+			(Turn::from_str("S")?, parse_turns("B F'")?),
+			(Turn::from_str("MC")?, parse_turns("R L")?),
+			(Turn::from_str("EC")?, parse_turns("D U")?),
+			(Turn::from_str("SC")?, parse_turns("B F")?),
+		];
+
+		for (turn, combo) in buildup.iter() {
+			let mut cubie = ArrayCube::new();
+			let mut cubie2 = ArrayCube::new();
+
+			cubie.apply_turn(*turn);
+			for turn in combo.iter() {
+				cubie2.apply_turn(*turn);
+			}
+
+			if cubie != cubie2 {
+				panic!("Turn {}: CubieCube is not correct!", turn);
+			}
+		}
+
+		for (turn, combo) in buildup.iter() {
+			let mut cubie = CubieCube::new();
+			let mut cubie2 = CubieCube::new();
+
+			cubie.apply_turn(*turn);
+			for turn in combo.iter() {
+				cubie2.apply_turn(*turn);
+			}
+
+			if cubie != cubie2 {
+				panic!("Turn {}: CubieCube is not correct!", turn);
+			}
+		}
+
+		Ok(())
+	}
+}
