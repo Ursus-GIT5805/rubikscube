@@ -91,8 +91,14 @@ impl std::fmt::Display for Turn {
 	}
 }
 
+#[derive(thiserror::Error, Debug)]
+pub enum FromStrError {
+	#[error("Unknown turntype")]
+	InvalidTurnType,
+}
+
 impl FromStr for Turn {
-	type Err = ();
+	type Err = FromStrError;
 
 	fn from_str(s: &str) -> Result<Self, Self::Err> {
 		let substr = {
@@ -105,7 +111,7 @@ impl FromStr for Turn {
 
 		let side = match TurnType::from_str(substr) {
 			Ok(res) => res,
-			Err(_) => return Err(()),
+			Err(_) => return Err(FromStrError::InvalidTurnType),
 		};
 
 		let wise = {
@@ -122,7 +128,7 @@ impl FromStr for Turn {
 	}
 }
 
-pub fn parse_turns<T>(item: T) -> Result<Vec<Turn>, ()>
+pub fn parse_turns<T>(item: T) -> Result<Vec<Turn>, FromStrError>
 where
 	T: Into<String>,
 {
