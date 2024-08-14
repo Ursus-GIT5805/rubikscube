@@ -128,11 +128,23 @@ impl FromStr for Turn {
 	}
 }
 
+/// Parse a sequence of turns from a string
 pub fn parse_turns<T>(item: T) -> Result<Vec<Turn>, FromStrError>
 where
 	T: Into<String>,
 {
 	item.into().split_whitespace().map(Turn::from_str).collect()
+}
+
+/// Return a vector containg every possible turn
+pub fn all_turns() -> Vec<Turn> {
+	let mut out = vec![];
+	for side in TurnType::iter() {
+		for wise in TurnWise::iter() {
+			out.push(Turn { side, wise });
+		}
+	}
+	out
 }
 
 /// Return a random sequence of turns of with length n

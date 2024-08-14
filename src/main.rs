@@ -65,6 +65,10 @@ struct Args {
 	/// If you want to read the output of the interactive mode, you should use this.
 	#[arg(short, long, default_value_t = String::new())]
 	output: String,
+
+	/// Specify whether to use advanced turns for solving
+	#[arg(long, default_value_t = false)]
+	advanced_turns: bool,
 }
 
 fn main() -> std::io::Result<()> {
@@ -158,7 +162,7 @@ fn main() -> std::io::Result<()> {
 		// Choose algorithm to use
 		let seq = match args.algorithm {
 			SolveAlgorithm::Thistlewaite => solve::thistlewhaite::solve(cube),
-			SolveAlgorithm::Kociemba => solve::kociemba::solve(cube),
+			SolveAlgorithm::Kociemba => solve::kociemba::solve(cube, args.advanced_turns),
 		};
 
 		match seq {

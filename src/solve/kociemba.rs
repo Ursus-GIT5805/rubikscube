@@ -22,16 +22,25 @@ type SymMovetable = Vec<Vec<(u16, u8)>>;
 /// representant cube of symmetry class i
 type SymToRawTable = Vec<u32>;
 
+fn get_turns_phase1(advanced_turns: bool) -> Vec<Turn> {
+	if advanced_turns {
+		return crate::cube::turn::all_turns();
+	}
+	parse_turns("U U2 U' D D2 D' B B2 B' F F2 F' L L2 L' R R2 R'").unwrap()
+}
+
+fn get_turns_phase2(advanced_turns: bool) -> Vec<Turn> {
+	if advanced_turns {
+		return parse_turns("U U2 U' D D2 D' B2 F2 L2 R2 M2 E E' E2 S2 EC EC'").unwrap();
+	}
+	parse_turns("U U2 U' D D2 D' B2 F2 L2 R2").unwrap()
+}
+
 lazy_static! {
 	static ref cornersym: Symtable = gen_corner_ori_symtable();
 	static ref edgesym: Symtable = gen2_edge_perm_symtable();
 	static ref toraw: SymToRawTable = gen_symmetrytoraw();
 	static ref toraw2: SymToRawTable = gen2_symmetrytoraw();
-	static ref h1: Vec<u8> = gen_phase1_heuristics();
-	static ref h2: Vec<u8> = gen_phase2_heuristics();
-	static ref turns_phase1: Vec<Turn> =
-		parse_turns("U U2 U' D D2 D' B B2 B' F F2 F' L L2 L' R R2 R'").unwrap();
-	static ref turns_phase2: Vec<Turn> = parse_turns("U U2 U' D D2 D' B2 F2 L2 R2").unwrap();
 	static ref rlslice: Vec<Edge> = vec![Edge::UF, Edge::DF, Edge::DB, Edge::UB];
 	static ref fbslice: Vec<Edge> = vec![Edge::UR, Edge::DR, Edge::DL, Edge::UL];
 	static ref udslice: Vec<Edge> = vec![Edge::FR, Edge::BR, Edge::BL, Edge::FL];
@@ -135,7 +144,7 @@ fn cube_from_edge_perm(coord: usize) -> CubieCube {
 /// Create a movetable
 fn create_movetable(
 	num_states: usize,
-	moves: &[Turn],
+	moves: Vec<Turn>,
 	to_idx: fn(&CubieCube) -> usize,
 	from_idx: fn(usize) -> CubieCube,
 ) -> Movetable {
@@ -228,7 +237,7 @@ fn create_sym_movetable(
 	symtoraw: &SymToRawTable,
 	from_idx: fn(usize) -> CubieCube,
 	to_idx: fn(&CubieCube) -> usize,
-	moves: &[Turn],
+	moves: Vec<Turn>,
 ) -> SymMovetable {
 	let n = symtoraw.len();
 	let mut out = vec![vec![(0, 0); moves.len()]; n];
@@ -279,23 +288,23 @@ fn gen_symmetrytoraw() -> SymToRawTable {
 	)
 }
 
-fn gen_symflipudslicetable() -> SymMovetable {
+fn gen_symflipudslicetable(advanced_turns: bool) -> SymMovetable {
 	create_sym_movetable(
 		&toraw,
 		cube_from_udslice_edge_idx,
 		get_flipudslice_coord,
-		&turns_phase1,
+		get_turns_phase1(advanced_turns),
 	)
 }
 
-fn gen_corner_ori_movetable() -> Movetable {
+fn gen_corner_ori_movetable(advanced_turns: bool) -> Movetable {
 	fn get_corner_ori_idx(cube: &CubieCube) -> usize {
 		cube.get_corner_orientation_coord()
 	}
 
 	create_movetable(
 		CORNER_ORI,
-		&turns_phase1,
+		get_turns_phase1(advanced_turns),
 		get_corner_ori_idx,
 		cube_from_corner_ori_idx,
 	)
@@ -309,17 +318,24 @@ fn gen_corner_ori_symtable() -> Symtable {
 	create_symtable(CORNER_ORI, 16, get_corner_ori_idx, cube_from_corner_ori_idx)
 }
 
-fn gen_phase1_heuristics() -> Vec<u8> {
-	const DATA_PATH: &str = "data/heuristics.dat";
+fn gen_phase1_heuristics(advanced_turns: bool) -> Vec<u8> {
+	let data_path = {
+		let mut s = vec!["phase1", "heuristics"];
+		if advanced_turns {
+			s.push("adv_moves");
+		}
+		format!("data/{}.dat", s.join("-"))
+	};
 
-	if let Ok(h) = read_data::<{ SYM_LEN * CORNER_ORI }>(DATA_PATH) {
+	if let Ok(h) = read_data::<{ SYM_LEN * CORNER_ORI }>(&data_path) {
 		return h;
 	}
 
 	println!("Must generate heuristics for phase 1, please wait...");
 
-	let ctable = gen_corner_ori_movetable();
-	let stable = gen_symflipudslicetable();
+	let turns_phase1 = get_turns_phase1(advanced_turns);
+	let ctable = gen_corner_ori_movetable(advanced_turns);
+	let stable = gen_symflipudslicetable(advanced_turns);
 
 	// Used to analyze symmetries of stable
 	let symstate: Vec<u16> = {
@@ -414,7 +430,7 @@ fn gen_phase1_heuristics() -> Vec<u8> {
 		}
 	}
 
-	match save_data(DATA_PATH, &out) {
+	match save_data(&data_path, &out) {
 		Ok(()) => {}
 		Err(_) => eprintln!("Could not save heuristics for phase 1!"),
 	}
@@ -437,22 +453,27 @@ fn gen2_symmetrytoraw() -> SymToRawTable {
 	)
 }
 
-fn gen2_symmovetable() -> SymMovetable {
+fn gen2_symmovetable(advanced_turns: bool) -> SymMovetable {
 	fn get_corn_perm(cube: &CubieCube) -> usize {
 		cube.get_corner_perm_coord()
 	}
 
-	create_sym_movetable(&toraw2, cube_from_corner_perm, get_corn_perm, &turns_phase2)
+	create_sym_movetable(
+		&toraw2,
+		cube_from_corner_perm,
+		get_corn_perm,
+		get_turns_phase2(advanced_turns),
+	)
 }
 
-fn gen2_edge_perm_movetable() -> Movetable {
+fn gen2_edge_perm_movetable(advanced_turns: bool) -> Movetable {
 	fn get_phase2_edge_perm(cube: &CubieCube) -> usize {
 		cube.get_edge8_permutation_coord()
 	}
 
 	create_movetable(
 		EDGE8_PERM,
-		&turns_phase2,
+		get_turns_phase2(advanced_turns),
 		get_phase2_edge_perm,
 		// we can actually do this because, the final 4 edges are never set
 		// TODO Still, make this more understandable and cleaner and the same for gen2_edge_perm_symtable
@@ -468,15 +489,23 @@ fn gen2_edge_perm_symtable() -> Symtable {
 	create_symtable(EDGE8_PERM, 16, get_phase2_edge_perm, cube_from_edge_perm)
 }
 
-fn gen_phase2_heuristics() -> Vec<u8> {
-	const DATA_PATH: &str = "data/heuristics_phase2.dat";
-	if let Ok(data) = read_data::<{ SYM2_LEN * EDGE8_PERM }>(DATA_PATH) {
+fn gen_phase2_heuristics(advanced_turns: bool) -> Vec<u8> {
+	let data_path = {
+		let mut s = vec!["phase2", "heuristics"];
+		if advanced_turns {
+			s.push("adv_moves");
+		}
+		format!("data/{}.dat", s.join("-"))
+	};
+
+	if let Ok(data) = read_data::<{ SYM2_LEN * EDGE8_PERM }>(&data_path) {
 		return data;
 	}
 	println!("Must generate heuristics for phase 2, please wait...");
 
-	let stable = gen2_symmovetable();
-	let etable = gen2_edge_perm_movetable();
+	let turns_phase2 = get_turns_phase2(advanced_turns);
+	let stable = gen2_symmovetable(advanced_turns);
+	let etable = gen2_edge_perm_movetable(advanced_turns);
 
 	const UNVISITED: u8 = u8::MAX;
 	let mut out = vec![UNVISITED; SYM2_LEN * EDGE8_PERM];
@@ -570,7 +599,7 @@ fn gen_phase2_heuristics() -> Vec<u8> {
 		}
 	}
 
-	match save_data(DATA_PATH, &out) {
+	match save_data(&data_path, &out) {
 		Ok(()) => {}
 		Err(_) => eprintln!("Could not save heuristics for phase 2!"),
 	}
@@ -612,7 +641,14 @@ fn read_data<const N: usize>(filepath: &str) -> Result<Vec<u8>> {
 	Ok(out)
 }
 
-fn search_phase2(path: &mut Vec<Turn>, cube: CubieCube, g: usize, bound: usize) -> usize {
+fn search_phase2(
+	h2: &Vec<u8>,
+	turns: &Vec<Turn>,
+	path: &mut Vec<Turn>,
+	cube: CubieCube,
+	g: usize,
+	bound: usize,
+) -> usize {
 	let f = g + h2[get_phase2_coord(&cube)] as usize;
 	if f > bound {
 		return f;
@@ -625,7 +661,7 @@ fn search_phase2(path: &mut Vec<Turn>, cube: CubieCube, g: usize, bound: usize) 
 	let mut min = usize::MAX;
 
 	let mut ord: Vec<(u8, usize)> = vec![];
-	for (i, turn) in turns_phase2.iter().enumerate() {
+	for (i, turn) in turns.iter().enumerate() {
 		let dst = {
 			let mut nc = cube.clone();
 			nc.apply_turn(*turn);
@@ -637,7 +673,7 @@ fn search_phase2(path: &mut Vec<Turn>, cube: CubieCube, g: usize, bound: usize) 
 
 	ord.sort();
 
-	for turn in ord.iter().map(|(_, i)| turns_phase2[*i]) {
+	for turn in ord.iter().map(|(_, i)| turns[*i]) {
 		let ncube = {
 			let mut nc = cube.clone();
 			nc.apply_turn(turn);
@@ -646,7 +682,7 @@ fn search_phase2(path: &mut Vec<Turn>, cube: CubieCube, g: usize, bound: usize) 
 
 		path.push(turn);
 
-		let t = search_phase2(path, ncube, g + 1, bound);
+		let t = search_phase2(h2, turns, path, ncube, g + 1, bound);
 		if t == usize::MAX - 1 {
 			return usize::MAX - 1;
 		}
@@ -661,7 +697,7 @@ fn search_phase2(path: &mut Vec<Turn>, cube: CubieCube, g: usize, bound: usize) 
 const SLICE_COORD: usize = 495 * 24;
 
 #[allow(dead_code)]
-fn gen_rlslice_sorted() -> Movetable {
+fn gen_rlslice_sorted(advanced_turns: bool) -> Movetable {
 	fn get_rlslice_coord(cube: &CubieCube) -> usize {
 		let vec: Vec<_> = cube
 			.edges
@@ -679,14 +715,14 @@ fn gen_rlslice_sorted() -> Movetable {
 
 	create_movetable(
 		SLICE_COORD,
-		&turns_phase1,
+		get_turns_phase1(advanced_turns),
 		get_rlslice_coord,
 		cube_from_rlslice_idx,
 	)
 }
 
 #[allow(dead_code)]
-fn gen_fbslice_sorted() -> Movetable {
+fn gen_fbslice_sorted(advanced_turns: bool) -> Movetable {
 	fn get_fbslice_coord(cube: &CubieCube) -> usize {
 		let vec: Vec<_> = cube
 			.edges
@@ -704,7 +740,7 @@ fn gen_fbslice_sorted() -> Movetable {
 
 	create_movetable(
 		SLICE_COORD,
-		&turns_phase1,
+		get_turns_phase1(advanced_turns),
 		get_fbslice_coord,
 		cube_from_fbslice_idx,
 	)
@@ -746,19 +782,29 @@ fn gen_toedge8perm_table() -> Movetable {
 	out
 }
 
-pub fn solve(initial: ArrayCube) -> Option<Vec<Turn>> {
+/// Solves the Rubik's Cube using Kociemba's Algorithm
+pub fn solve(initial: ArrayCube, advanced_turns: bool) -> Option<Vec<Turn>> {
 	let mut turns = vec![];
-	let mut cube: CubieCube = initial
-		.clone()
-		.try_into()
-		.expect("The given cube couldn't be converted properly!");
+	let mut cube: CubieCube = {
+		let res = initial.clone().try_into();
 
+		match res {
+			Ok(cube) => cube,
+			Err(e) => {
+				eprintln!("Cube can't be solved: {}", e);
+				return None;
+			}
+		}
+	};
+
+	let h1 = gen_phase1_heuristics(advanced_turns);
 	let mut dist = {
 		let (z, sym) = get_sym_class(&cube, &toraw, get_flipudslice_coord).unwrap();
 		let y = cornersym[cube.get_corner_orientation_coord()][sym] as usize;
 		h1[z * CORNER_ORI + y]
 	};
 
+	let turns_phase1 = get_turns_phase1(advanced_turns);
 	loop {
 		if dist == 0 {
 			break;
@@ -784,11 +830,13 @@ pub fn solve(initial: ArrayCube) -> Option<Vec<Turn>> {
 
 	// phase 2
 
+	let h2 = gen_phase2_heuristics(advanced_turns);
 	let mut bound = h2[get_phase2_coord(&cube)] as usize;
 	let mut path = vec![];
+	let turns_phase2 = get_turns_phase2(advanced_turns);
 
 	loop {
-		let t = search_phase2(&mut path, cube.clone(), 0, bound);
+		let t = search_phase2(&h2, &turns_phase2, &mut path, cube.clone(), 0, bound);
 		if t == usize::MAX - 1 {
 			for p in path {
 				turns.push(p);
