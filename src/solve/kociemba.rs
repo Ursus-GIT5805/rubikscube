@@ -401,16 +401,16 @@ fn gen_heuristics(
 	);
 
 	let n = symmovetable.len() * movetable.len();
-	let numturns = movetable[0].len();
 
 	let maxmoves = movetable.len();
+	let numturns = movetable[0].len();
 
 	const UNVISITED: u8 = u8::MAX;
 	let mut out = vec![UNVISITED; n];
 	out[0] = 0;
 
 	for m in 0..(max_depth as u8) {
-		// #[cfg(debug_assertions)]
+		#[cfg(debug_assertions)]
 		let now = std::time::Instant::now();
 
 		#[cfg(debug_assertions)]
@@ -486,7 +486,7 @@ fn gen_heuristics(
 			}
 		}
 
-		// #[cfg(debug_assertions)]
+		#[cfg(debug_assertions)]
 		println!("Time elapsed: {:.?}", now.elapsed());
 	}
 
@@ -495,7 +495,7 @@ fn gen_heuristics(
 		Err(_) => eprintln!("Could not save heuristics for phase 1!"),
 	}
 
-	// #[cfg(debug_assertions)]
+	#[cfg(debug_assertions)]
 	{
 		let mut cnt = vec![0; max_depth + 1];
 		for x in out.iter() {
@@ -554,6 +554,7 @@ fn gen2_edge_perm_symtable() -> Symtable {
 	create_symtable(EDGE8_PERM, 16, get_phase2_edge_perm, cube_from_edge_perm)
 }
 
+/// Generate or load phase2 heuristics
 fn gen_phase2_heuristics(advanced_turns: bool) -> Vec<u8> {
 	let data_path = {
 		let mut s = vec!["phase2", "heuristics"];
@@ -566,7 +567,6 @@ fn gen_phase2_heuristics(advanced_turns: bool) -> Vec<u8> {
 	if let Ok(data) = read_data::<{ SYM2_LEN * EDGE8_PERM }>(&data_path) {
 		return data;
 	}
-	println!("Must generate heuristics for phase 2, please wait...");
 
 	let stable = gen2_symmovetable(advanced_turns);
 	let etable = gen2_edge_perm_movetable(advanced_turns);
@@ -576,16 +576,12 @@ fn gen_phase2_heuristics(advanced_turns: bool) -> Vec<u8> {
 	let mut out = vec![UNVISITED; SYM2_LEN * EDGE8_PERM];
 	out[0] = 0;
 
-	fn get_corner_perm(cube: &CubieCube) -> usize {
-		cube.get_corner_perm_coord()
-	}
-
-	let symstate = gen_symstate(&toraw2, get_corner_perm, cube_from_corner_perm);
+	let symstate = gen_symstate(&toraw2, get_corner_perm_coord, cube_from_corner_perm);
 
 	if advanced_turns {
-		gen_heuristics(data_path, symtable, etable, symstate, stable, 18, 12)
-	} else {
 		gen_heuristics(data_path, symtable, etable, symstate, stable, 17, 11)
+	} else {
+		gen_heuristics(data_path, symtable, etable, symstate, stable, 18, 12)
 	}
 }
 
@@ -809,8 +805,6 @@ pub fn solve(initial: ArrayCube, advanced_turns: bool) -> Option<Vec<Turn>> {
 	}
 
 	// phase 2
-	assert!(cube.is_solvable());
-
 	let h2 = gen_phase2_heuristics(advanced_turns);
 	let mut bound = h2[get_phase2_coord(&cube)] as usize;
 	let mut path = vec![];
