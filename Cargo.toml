@@ -16,6 +16,7 @@ const_for = "*"
 bit-set = "*"
 lazy_static = "*"
 thiserror = "*"
+rayon = "*"
 
 [profile.release]
 opt-level = 3
