@@ -733,11 +733,7 @@ fn search_phase2(
 const SLICE_COORD: usize = 495 * 24;
 
 fn get_slice_coord_sorted(cube: &CubieCube, slice: &[Edge]) -> usize {
-	let vec: Vec<_> = cube
-		.edges
-		.iter()
-		.map(|(e, _)| slice.contains(e))
-		.collect();
+	let vec: Vec<_> = cube.edges.iter().map(|(e, _)| slice.contains(e)).collect();
 	let ord: Vec<_> = cube
 		.edges
 		.iter()
@@ -940,13 +936,16 @@ pub fn solve(initial: ArrayCube, advanced_turns: bool) -> Option<Vec<Turn>> {
 	};
 
 	initial.print();
-	println!("initial: {} {} {}", corner_ori, edge_ori, udslice_sorted_coord);
+	println!(
+		"initial: {} {} {}",
+		corner_ori, edge_ori, udslice_sorted_coord
+	);
 	println!("PHASE 1");
 
 	let mut ccube = cube.clone();
 
 	loop {
-		if udslice_sorted_coord/24 == 0 && edge_ori == 0 && corner_ori == 0 {
+		if udslice_sorted_coord / 24 == 0 && edge_ori == 0 && corner_ori == 0 {
 			break;
 		}
 
@@ -980,7 +979,7 @@ pub fn solve(initial: ArrayCube, advanced_turns: bool) -> Option<Vec<Turn>> {
 				let mut nc = ccube.clone();
 				nc.apply_turn(*turn);
 
-				let mut out = (0,0);
+				let mut out = (0, 0);
 				for sym in 0..NUM_SYMMETRIES {
 					let c = get_symmetry_inv(&nc, sym);
 					let dst = get_flipudslice_coord(&c) as u32;
@@ -1024,7 +1023,10 @@ pub fn solve(initial: ArrayCube, advanced_turns: bool) -> Option<Vec<Turn>> {
 			}
 		}
 		if !good {
-			panic!("failed: {} {} {}", corner_ori, edge_ori, udslice_sorted_coord);
+			panic!(
+				"failed: {} {} {}",
+				corner_ori, edge_ori, udslice_sorted_coord
+			);
 		}
 	}
 
