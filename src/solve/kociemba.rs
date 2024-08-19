@@ -31,7 +31,7 @@ struct Heuristics {
 
 impl Heuristics {
 	pub fn new(n: usize) -> Self {
-		let sz = (n / 4) + (n & 0b11 != 0) as usize;
+		let sz = (n >> 2) + (n & 0b11 != 0) as usize;
 
 		Self {
 			data: vec![0xFF; sz],
@@ -40,16 +40,28 @@ impl Heuristics {
 
 	pub fn get(&self, i: usize) -> Option<u8> {
 		let x = self.data.get(i >> 2)?;
-		let offset = i & 0b11;
+		let offset = (i & 0b11) << 1;
 		let res = (x >> offset) & 0b11;
 		Some(res)
 	}
 
 	pub fn set(&mut self, i: usize, val: u8) {
 		let x = self.data.get_mut(i >> 2).unwrap();
-		let offset = i & 0b11;
+		let offset = (i & 0b11) << 1;
 		*x &= !(0b11 << offset);
 		*x |= (val & 0b11) << offset;
+	}
+}
+
+impl From<Vec<u8>> for Heuristics {
+	fn from(val: Vec<u8>) -> Self {
+		let mut out = Self::new(val.len());
+
+		for (i, v) in val.iter().enumerate() {
+			out.set(i, v % 3);
+		}
+
+		out
 	}
 }
 
@@ -370,7 +382,7 @@ fn gen_corner_ori_symtable() -> Symtable {
 	)
 }
 
-fn gen_phase1_heuristics(advanced_turns: bool) -> Vec<u8> {
+fn gen_phase1_heuristics(advanced_turns: bool) -> Heuristics {
 	let data_path = {
 		let mut s = vec!["phase1", "heuristics"];
 		if advanced_turns {
@@ -379,8 +391,9 @@ fn gen_phase1_heuristics(advanced_turns: bool) -> Vec<u8> {
 		format!("data/{}.dat", s.join("-"))
 	};
 
-	if let Ok(h) = read_data::<{ SYM_LEN * CORNER_ORI }>(&data_path) {
-		return h;
+	if let Ok(data) = read_data::<35227103>(&data_path) {
+		println!("Loaded {}", data_path);
+		return Heuristics { data };
 	}
 
 	let ctable = gen_corner_ori_movetable(advanced_turns);
@@ -433,7 +446,7 @@ fn gen_heuristics(
 	symmovetable: SymMovetable,
 	max_depth: usize,
 	rev_depth: usize,
-) -> Vec<u8> {
+) -> Heuristics {
 	println!(
 		"Must generate heuristics for {}, this may take a while...",
 		path
@@ -452,9 +465,9 @@ fn gen_heuristics(
 		#[cfg(debug_assertions)]
 		let now = std::time::Instant::now();
 
-		#[cfg(debug_assertions)]
+		// #[cfg(debug_assertions)]
 		{
-			let percent = m as f32 / 12f32 * 100f32;
+			let percent = m as f32 / (max_depth as f32) * 100f32;
 			println!("Generating depth: {} ({}%)", m, percent);
 		}
 
@@ -529,11 +542,6 @@ fn gen_heuristics(
 		println!("Time elapsed: {:.?}", now.elapsed());
 	}
 
-	match save_data(&path, &out) {
-		Ok(()) => {}
-		Err(_) => eprintln!("Could not save heuristics {}!", path),
-	}
-
 	#[cfg(debug_assertions)]
 	{
 		let mut cnt = vec![0; max_depth + 1];
@@ -547,7 +555,14 @@ fn gen_heuristics(
 		}
 	}
 
-	out
+	let h = Heuristics::from(out);
+
+	match save_data(&path, &h.data) {
+		Ok(()) => {}
+		Err(_) => eprintln!("Could not save heuristics {}!", path),
+	}
+
+	h
 }
 
 // ===== Phase 2 =====
@@ -594,7 +609,7 @@ fn gen2_edge_perm_symtable() -> Symtable {
 }
 
 /// Generate or load phase2 heuristics
-fn gen_phase2_heuristics(advanced_turns: bool) -> Vec<u8> {
+fn gen_phase2_heuristics(advanced_turns: bool) -> Heuristics {
 	let data_path = {
 		let mut s = vec!["phase2", "heuristics"];
 		if advanced_turns {
@@ -603,17 +618,14 @@ fn gen_phase2_heuristics(advanced_turns: bool) -> Vec<u8> {
 		format!("data/{}.dat", s.join("-"))
 	};
 
-	if let Ok(data) = read_data::<{ SYM2_LEN * EDGE8_PERM }>(&data_path) {
-		return data;
+	if let Ok(data) = read_data::<27901440>(&data_path) {
+		println!("Loaded {}", data_path);
+		return Heuristics { data };
 	}
 
 	let stable = gen2_symmovetable(advanced_turns);
 	let etable = gen2_edge_perm_movetable(advanced_turns);
 	let symtable = gen2_edge_perm_symtable();
-
-	const UNVISITED: u8 = u8::MAX;
-	let mut out = vec![UNVISITED; SYM2_LEN * EDGE8_PERM];
-	out[0] = 0;
 
 	let symstate = gen_symstate(&toraw2, get_corner_perm_coord, cube_from_corner_perm);
 
@@ -654,12 +666,13 @@ fn get_phase2_coord(cperm: usize, eperm: usize) -> usize {
 }
 
 fn search_phase2(
-	h2: &Vec<u8>,
+	h2: &Heuristics,
 	corner_perm: usize,
 	corner_perm_table: &Movetable,
 
 	edge8_perm: usize,
 	edge8_perm_table: &Movetable,
+
 	udslice_coord: usize,
 	udslice_movetable: &Movetable,
 
@@ -668,7 +681,8 @@ fn search_phase2(
 	g: usize,
 	bound: usize,
 ) -> usize {
-	let f = g + h2[get_phase2_coord(corner_perm, edge8_perm)] as usize;
+	let f = g + h2.get(get_phase2_coord(corner_perm, edge8_perm)).unwrap() as usize;
+
 	if f > bound {
 		return f;
 	}
@@ -677,9 +691,8 @@ fn search_phase2(
 		return usize::MAX - 1;
 	}
 
-	// println!("{},{},{}", corner_perm, edge8_perm, udslice_coord);
-
 	let mut min = usize::MAX;
+	let cur = h2.get(get_phase2_coord(corner_perm, edge8_perm)).unwrap();
 
 	let mut ord: Vec<(u8, usize)> = turns
 		.iter()
@@ -687,9 +700,19 @@ fn search_phase2(
 		.map(|(i, _)| {
 			let d_cperm = corner_perm_table[corner_perm][i] as usize;
 			let d_eperm = edge8_perm_table[edge8_perm][i] as usize;
-			let dst = get_phase2_coord(d_cperm, d_eperm);
 
-			(h2[dst], i)
+			let dst = get_phase2_coord(d_cperm, d_eperm);
+			let res = h2.get(dst).unwrap();
+
+			let w = if (res + 1) % 3 == cur {
+				0
+			} else if res == cur {
+				1
+			} else {
+				2
+			};
+
+			(w, i)
 		})
 		.collect();
 
@@ -702,7 +725,6 @@ fn search_phase2(
 
 		path.push(turns[i]);
 
-		// let t = search_phase2(h2, turns, path, ncube, g + 1, bound);
 		let t = search_phase2(
 			h2,
 			d_cperm,
@@ -830,7 +852,7 @@ fn create_rawtosym_table(
 }
 
 fn phase2(
-	h2: &Vec<u8>,
+	h2: &Heuristics,
 	corner_perm: usize,
 	corner_perm_table: &Movetable,
 	edge8_perm: usize,
@@ -839,8 +861,8 @@ fn phase2(
 	udslice_movetable: &Movetable,
 	advanced_turns: bool,
 ) -> Option<Vec<Turn>> {
-	let idx = get_phase2_coord(corner_perm, edge8_perm);
-	let mut bound = h2[idx] as usize;
+	// TODO FIX THIS BOUND
+	let mut bound = 18;
 	let mut path = vec![];
 	let turns_phase2 = get_turns_phase2(advanced_turns);
 
@@ -940,10 +962,12 @@ pub fn solve(initial: ArrayCube, advanced_turns: bool) -> Option<Vec<Turn>> {
 
 		let (dz, sym) = symflipud_fromraw[idx];
 		let dy = cornersym[corner_ori][sym as usize] as usize;
-		h1[dy + dz as usize * CORNER_ORI]
+		h1.get(dy + dz as usize * CORNER_ORI).unwrap()
 	};
 
 	let mut ccube = cube.clone();
+
+	println!("phase 1!");
 
 	loop {
 		if udslice_sorted_coord / 24 == 0 && edge_ori == 0 && corner_ori == 0 {
@@ -964,9 +988,9 @@ pub fn solve(initial: ArrayCube, advanced_turns: bool) -> Option<Vec<Turn>> {
 				(a as usize, b as usize)
 			};
 			let dy = cornersym[d_corner_ori][sym] as usize;
-			let ddist = h1[dy + dz * CORNER_ORI];
+			let ddist = h1.get(dy + dz * CORNER_ORI).unwrap();
 
-			if ddist + 1 == dist {
+			if (ddist + 1) % 3 == dist {
 				edge_ori = d_edge_ori;
 				corner_ori = d_corner_ori;
 				udslice_sorted_coord = d_udslice;
