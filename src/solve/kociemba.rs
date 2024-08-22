@@ -357,7 +357,7 @@ impl Solver {
 
 	/// Solve the given cube and return a sequence if possible
 	pub fn solve(&mut self, cube: CubieCube) -> Option<Vec<Turn>> {
-		if cube.is_solvable() {
+		if !cube.is_solvable() {
 			return None;
 		}
 
