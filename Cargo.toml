@@ -7,10 +7,13 @@ exclude = [
     "**~",
 ]
 
+[features]
+interactive = ["dep:pancurses"]
+
 [dependencies]
 clap = { version = "*", features = ["derive"] }
 rand = "*"
-pancurses = { version = "*", features = ["wide"] }
+pancurses = { version = "*", features = ["wide"], optional = true }
 strum = { version = "*", features = ["derive"] }
 const_for = "*"
 bit-set = "*"

@@ -7,7 +7,10 @@ use rand::prelude::*;
 use strum::{Display, IntoEnumIterator};
 
 mod cube;
+
+#[cfg(feature = "interactive")]
 mod interactive;
+
 pub mod math;
 mod solve;
 
@@ -30,6 +33,7 @@ enum SolveAlgorithm {
 struct Args {
 	/// Enter the cube interactively
 	/// Entered sequences or shuffles are ignored
+	#[cfg(feature = "interactive")]
 	#[arg(short, long, default_value_t = false)]
 	interactive: bool,
 
@@ -62,7 +66,6 @@ struct Args {
 	list_algorithm: bool,
 
 	/// Print the output to a file rather to the stdout
-	/// If you want to read the output of the interactive mode, you should use this.
 	#[arg(short, long, default_value_t = String::new())]
 	output: String,
 
@@ -138,6 +141,7 @@ fn main() -> std::io::Result<()> {
 	cube.apply_turns(parse_turns(args.sequence).expect("Given input sequence could not be parsed"));
 
 	// Use the interactive mode
+	#[cfg(feature = "interactive")]
 	if args.interactive {
 		// Run interactive mode
 		let res = interactive::interactive_mode();
