@@ -17,6 +17,8 @@ bit-set = "*"
 lazy_static = "*"
 thiserror = "*"
 rayon = "*"
+serde = { verion = "*", features = ["derive"] }
+bincode = "*"
 
 [profile.release]
 opt-level = 3
