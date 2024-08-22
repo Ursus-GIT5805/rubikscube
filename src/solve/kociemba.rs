@@ -1,6 +1,7 @@
 use std::error::Error;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::io::{Read, Write};
+use std::path::PathBuf;
 
 use lazy_static::lazy_static;
 use rayon::prelude::*;
@@ -12,6 +13,7 @@ use crate::math::*;
 
 /// v[coord][i] is the coordinate when applying move i on coord
 type Movetable = Vec<Vec<u16>>;
+
 /// v[coord][i] is the coordinate of the i-th symmetry of coord
 type Symtable = Vec<Vec<u16>>;
 
@@ -704,14 +706,18 @@ fn get_sym_class(
 
 // Loader functions
 
+fn get_data_path(filename: &String) -> std::io::Result<PathBuf> {
+	let mut pathbuf = std::env::current_dir()?;
+	pathbuf.push("data");
+	pathbuf.push(filename);
+	Ok(pathbuf)
+}
+
 fn load_data<T>(path: &String) -> GenericResult<T>
 where
 	for<'a> T: serde::Deserialize<'a>,
 {
-	let mut pathbuf = std::env::current_dir()?;
-	pathbuf.push("data");
-	pathbuf.push(path);
-
+	let pathbuf = get_data_path(path)?;
 	let mut file = std::fs::File::open(pathbuf)?;
 	let mut buf = vec![];
 	file.read_to_end(&mut buf)?;
@@ -724,14 +730,27 @@ fn save_data<T>(path: &String, data: &T) -> GenericResult<()>
 where
 	T: serde::Serialize,
 {
-	let mut pathbuf = std::env::current_dir()?;
-	pathbuf.push("data");
-	pathbuf.push(path);
-
+	let pathbuf = get_data_path(path)?;
 	let mut file = std::fs::File::create(pathbuf)?;
 	let encode: Vec<u8> = bincode::serialize(data)?;
 	file.write_all(&encode)?;
 
+	Ok(())
+}
+
+fn load_bytes(path: &String) -> std::io::Result<Vec<u8>> {
+	let pathbuf = get_data_path(path)?;
+	let mut file = std::fs::File::open(pathbuf)?;
+	let mut buf = vec![];
+	file.read_to_end(&mut buf)?;
+
+	Ok(buf)
+}
+
+fn save_bytes(path: &String, data: &[u8]) -> std::io::Result<()> {
+	let pathbuf = get_data_path(path)?;
+	let mut file = std::fs::File::create(pathbuf)?;
+	file.write_all(data)?;
 	Ok(())
 }
 
@@ -744,12 +763,8 @@ where
 	F: FnOnce() -> T,
 {
 	match load_data(path) {
-		Ok(res) => {
-			// println!("Loaded {}", path);
-			res
-		}
+		Ok(res) => res,
 		Err(_) => {
-			// println!("Generate {}", path);
 			let t = generator();
 			if let Err(e) = save_data(path, &t) {
 				eprintln!("Could not save data to {}: {}", path, e);
@@ -845,31 +860,38 @@ fn get_edge8_perm_symtable() -> Symtable {
 fn get_phase1_heuristics(turns: Vec<Turn>) -> Heuristics {
 	let data_path = format!("phase1-heuristics-{:x}.dat", hash_turns(&turns));
 
-	let gen = || {
-		println!("Generating {}, this may take a while...", &data_path);
-		let toraw = create_symtoraw_list(
-			FLIP_UDSLICE,
-			SYM_FLIP_UDSLICE,
-			get_flip_udslice_coord,
-			cube_from_flip_udslice,
-		);
+	match load_bytes(&data_path) {
+		Ok(data) => Heuristics { data },
+		Err(_) => {
+			let toraw = create_symtoraw_list(
+				FLIP_UDSLICE,
+				SYM_FLIP_UDSLICE,
+				get_flip_udslice_coord,
+				cube_from_flip_udslice,
+			);
 
-		let symstate = gen_symstate(&toraw, get_flip_udslice_coord, cube_from_flip_udslice);
+			let symstate = gen_symstate(&toraw, get_flip_udslice_coord, cube_from_flip_udslice);
 
-		let stable = create_sym_movetable(
-			&toraw,
-			&turns,
-			get_flip_udslice_coord,
-			cube_from_flip_udslice,
-		);
+			let stable = create_sym_movetable(
+				&toraw,
+				&turns,
+				get_flip_udslice_coord,
+				cube_from_flip_udslice,
+			);
 
-		let ctable = get_corner_ori_movetable(&turns);
-		let symtable = get_corner_ori_symtable();
+			let ctable = get_corner_ori_movetable(&turns);
+			let symtable = get_corner_ori_symtable();
 
-		gen_heuristics(ctable, stable, symtable, symstate)
-	};
+			let h = gen_heuristics(ctable, stable, symtable, symstate);
 
-	load_or_generate(&data_path, gen)
+			match save_bytes(&data_path, &h.data) {
+				Ok(_) => {}
+				Err(e) => eprintln!("Could not save {}: {}", data_path, e),
+			}
+
+			h
+		}
+	}
 }
 
 fn gen_symstate(
@@ -1021,27 +1043,35 @@ fn gen_heuristics(
 fn get_phase2_heuristics(turns: Vec<Turn>) -> Heuristics {
 	let data_path = format!("phase2-heuristics-{:x}.dat", hash_turns(&turns));
 
-	let gen = || {
-		println!("Generating {}, this may take a while...", &data_path);
-		let toraw = create_symtoraw_list(
-			CORNER_PERM,
-			SYM_CORNER_PERM,
-			get_corner_perm_coord,
-			cube_from_corner_perm,
-		);
+	match load_bytes(&data_path) {
+		Ok(data) => Heuristics { data },
+		Err(_) => {
+			println!("Generating {}, this may take a while...", &data_path);
+			let toraw = create_symtoraw_list(
+				CORNER_PERM,
+				SYM_CORNER_PERM,
+				get_corner_perm_coord,
+				cube_from_corner_perm,
+			);
 
-		let symstate = gen_symstate(&toraw, get_corner_perm_coord, cube_from_corner_perm);
+			let symstate = gen_symstate(&toraw, get_corner_perm_coord, cube_from_corner_perm);
 
-		let stable =
-			create_sym_movetable(&toraw, &turns, get_corner_perm_coord, cube_from_corner_perm);
+			let stable =
+				create_sym_movetable(&toraw, &turns, get_corner_perm_coord, cube_from_corner_perm);
 
-		let ctable = get_edge8_perm_movetable(&turns);
-		let symtable = get_edge8_perm_symtable();
+			let ctable = get_edge8_perm_movetable(&turns);
+			let symtable = get_edge8_perm_symtable();
 
-		gen_heuristics(ctable, stable, symtable, symstate)
-	};
+			let h = gen_heuristics(ctable, stable, symtable, symstate);
 
-	load_or_generate(&data_path, gen)
+			match save_bytes(&data_path, &h.data) {
+				Ok(_) => {}
+				Err(e) => eprintln!("Could not save to {}: {}", data_path, e),
+			}
+
+			h
+		}
+	}
 }
 
 fn get_slice_coord_sorted(cube: &CubieCube, slice: &[Edge]) -> usize {
