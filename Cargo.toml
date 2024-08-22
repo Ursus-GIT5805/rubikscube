@@ -14,7 +14,6 @@ pancurses = { version = "*", features = ["wide"] }
 strum = { version = "*", features = ["derive"] }
 const_for = "*"
 bit-set = "*"
-lazy_static = "*"
 thiserror = "*"
 rayon = "*"
 serde = { version = "*", features = ["derive"] }
