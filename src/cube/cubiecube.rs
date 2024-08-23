@@ -1,5 +1,6 @@
 use arraycube::{corner_to_indices, edge_to_indices};
 use const_for::const_for;
+use rand::Rng;
 use strum::IntoEnumIterator;
 
 use crate::{cube::*, math::*};
@@ -399,6 +400,40 @@ impl CubieCube {
 			corners: TC_BASE,
 			edges: TE_BASE,
 		}
+	}
+
+	/// Create a random (but solvable) cube
+	pub fn random() -> Self {
+		let mut rng = rand::thread_rng();
+		let mut cubie = CubieCube::new();
+
+		// Generate a cubie by setting random coordinates
+		cubie.set_edge_orientation(rng.gen::<usize>() % EDGE_ORI);
+		cubie.set_corner_orientation(rng.gen::<usize>() % CORNER_ORI);
+
+		let cperm = rng.gen::<usize>() % CORNER_PERM;
+		let mut eperm = rng.gen::<usize>() % EDGE_PERM;
+
+		// The number of swaps have to be even
+		// Which is equivalent to: The number of inversions has to be even.
+		let inv = count_permutation_inversions(cperm);
+		let inv2 = count_permutation_inversions(eperm);
+
+		if (inv + inv2) % 2 == 1 {
+			// It can be proven that the sum over all factoradic digits
+			// are the total number of inversions.
+			// Using the factoradic number system, we can simply change
+			// the second digit by one, which is determined by the first bit.
+			eperm ^= 1;
+		}
+
+		cubie.set_corner_permutation(cperm);
+		cubie.set_edge_permutation(eperm);
+
+		#[cfg(debug_assertions)]
+		assert!(cubie.is_solvable());
+
+		cubie
 	}
 
 	/// Get the corner and orientation at position 'c'

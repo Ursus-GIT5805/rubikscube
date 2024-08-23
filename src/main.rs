@@ -1,9 +1,7 @@
 use std::str::FromStr;
 
 use clap::Parser;
-use cubiecube::{CubieCube, CORNER_ORI, CORNER_PERM, EDGE_ORI, EDGE_PERM};
-use math::count_permutation_inversions;
-use rand::prelude::*;
+use cubiecube::CubieCube;
 use strum::{Display, IntoEnumIterator};
 
 mod cube;
@@ -76,9 +74,7 @@ struct Args {
 
 fn main() -> std::io::Result<()> {
 	#[cfg(debug_assertions)]
-	{
-		std::env::set_var("RUST_BACKTRACE", "1");
-	}
+	std::env::set_var("RUST_BACKTRACE", "1");
 
 	let args = Args::parse();
 	// Whether to redirect it to the stdout or a file
@@ -99,36 +95,7 @@ fn main() -> std::io::Result<()> {
 
 	// Generate a random input cube
 	if args.random {
-		let mut rng = rand::thread_rng();
-		let mut cubie = CubieCube::new();
-
-		// Generate a cubie by setting random coordinates
-		cubie.set_edge_orientation(rng.gen::<usize>() % EDGE_ORI);
-		cubie.set_corner_orientation(rng.gen::<usize>() % CORNER_ORI);
-
-		let cperm = rng.gen::<usize>() % CORNER_PERM;
-		let mut eperm = rng.gen::<usize>() % EDGE_PERM;
-
-		// The number of swaps have to be even
-		// Which is equivalent to: The number of inversions has to be even.
-		let inv = count_permutation_inversions(cperm);
-		let inv2 = count_permutation_inversions(eperm);
-
-		if (inv + inv2) % 2 == 1 {
-			// It can be proven that the sum over all factoradic digits
-			// are the total number of inversions.
-			// Using the factoradic number system, we can simply change
-			// the second digit by one, which is determined by the first bit.
-			eperm ^= 1;
-		}
-
-		cubie.set_corner_permutation(cperm);
-		cubie.set_edge_permutation(eperm);
-
-		#[cfg(debug_assertions)]
-		assert!(cubie.is_solvable());
-
-		cube = cubie.into();
+		cube = CubieCube::random().into();
 	}
 
 	// Parses a cube out of the cube string
@@ -140,7 +107,6 @@ fn main() -> std::io::Result<()> {
 	// Applies turns from args
 	cube.apply_turns(parse_turns(args.sequence).expect("Given input sequence could not be parsed"));
 
-	// Use the interactive mode
 	#[cfg(feature = "interactive")]
 	if args.interactive {
 		// Run interactive mode
@@ -154,11 +120,10 @@ fn main() -> std::io::Result<()> {
 
 	// Solve the cube and only outputs the sequence
 	if args.solve {
-		let cubie: CubieCube = cube
-			.clone()
-			.try_into()
-			.expect("The given cube couldn't be converted properly");
-
+		let cubie: CubieCube = match cube.clone().try_into() {
+			Ok(c) => c,
+			Err(e) => panic!("The given cube is not solvable: {}", e),
+		};
 		if let Err(e) = cubie.check_solvability() {
 			panic!("The given cube is not solvable: {}", e);
 		}
