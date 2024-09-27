@@ -163,7 +163,7 @@ impl DataPhase1 {
 			edge_ori_move: get_edge_ori_movetable(&turns),
 			slice_move: get_slice_sorted_movetable(&turns),
 			corner_perm_move: get_corner_perm_movetable(&turns),
-			heuristic: get_phase1_heuristics(turns),
+			heuristic: get_phase1_heuristics(&turns),
 			cornersym: get_corner_ori_symtable(),
 			into_edge8_perm: get_into_edge8perm(),
 			rawtosym: get_flip_udslice_rawtosym(),
@@ -263,7 +263,7 @@ impl DataPhase2 {
 			corner_perm_move: get_corner_perm_movetable(&turns),
 			edge8_perm_move: get_edge8_perm_movetable(&turns),
 			slice_move: get_udslice_perm_movetable(&turns),
-			heuristic: get_phase2_heuristics(turns.clone()),
+			heuristic: get_phase2_heuristics(&turns),
 			edgesym: get_edge8_perm_symtable(),
 			rawtosym: get_corner_perm_rawtosym(),
 		}
@@ -471,12 +471,26 @@ fn get_corner_perm_coord(cube: &CubieCube) -> usize {
 }
 
 fn get_edge8_perm(cube: &CubieCube) -> usize {
-	cube.get_edge8_permutation_coord()
+	let perm: Vec<_> = cube
+		.edges
+		.iter()
+		.take(8)
+		.map(|(e, _)| *e as usize)
+		.collect();
+
+	map_permutation(&perm)
 }
 
 fn get_flip_udslice_coord(cube: &CubieCube) -> usize {
 	let edge = cube.get_edge_orientation_coord();
-	let udslice_coord = cube.get_udslice_coord();
+	let chosen: Vec<_> = Edge::iter()
+		.map(|pos| {
+			let (e, _) = cube.edge_at(pos);
+			UDSLICE_EDGES.contains(&e)
+		})
+		.collect();
+
+	let udslice_coord = map_nck(&chosen);
 	udslice_coord * EDGE_ORI + edge
 }
 
@@ -520,12 +534,12 @@ fn cube_from_edge_ori(coord: usize) -> CubieCube {
 	cube
 }
 
-/// Return a cube distributing the edges according to idx
+/// Return a cube distributing the edges according to coord
 /// The idx is the idx-th type of n choose k
-fn cube_from_edge_pos(edges: Vec<Edge>, idx: usize) -> CubieCube {
+fn cube_from_edge_pos(edges: Vec<Edge>, coord: usize) -> CubieCube {
 	let mut cube = CubieCube::new();
 
-	let chosen = get_nck(NUM_EDGES, edges.len(), idx);
+	let chosen = get_nck(NUM_EDGES, edges.len(), coord);
 
 	let mut m = 0;
 	let mut n = 0;
@@ -560,28 +574,30 @@ fn cube_from_flip_udslice(idx: usize) -> CubieCube {
 	cube
 }
 
-fn cube_from_udslice_sorted(idx: usize) -> CubieCube {
-	let pos = idx / 24;
-	let ord = idx % 24;
+fn cube_from_udslice_sorted(coord: usize) -> CubieCube {
+	let pos = coord / 24;
+	let ord = coord % 24;
 
 	let slice = permute_vec(UDSLICE_EDGES.to_vec(), ord);
 	cube_from_edge_pos(slice, pos)
 }
 
-fn cube_from_fbslice_sorted(idx: usize) -> CubieCube {
-	let pos = idx / 24;
-	let ord = idx % 24;
+fn cube_from_fbslice_sorted(coord: usize) -> CubieCube {
+	let pos = coord / 24;
+	let ord = coord % 24;
 
 	let slice = permute_vec(FBSLICE_EDGES.to_vec(), ord);
 	cube_from_edge_pos(slice, pos)
 }
 
+/// Cube from corner permutation coord
 fn cube_from_corner_perm(coord: usize) -> CubieCube {
 	let mut cube = CubieCube::new();
 	cube.set_corner_permutation(coord);
 	cube
 }
 
+/// Cube from edge permutation coord
 fn cube_from_edge_perm(coord: usize) -> CubieCube {
 	let mut cube = CubieCube::new();
 	cube.set_edge_permutation(coord);
@@ -616,6 +632,7 @@ fn create_movetable(
 		.collect()
 }
 
+/// Creates a list where v[i] is an element of symmetry group i
 fn create_symtoraw(
 	num_states: usize,
 	num_symmetry_states: usize,
@@ -651,6 +668,7 @@ fn create_symtoraw(
 	out
 }
 
+/// Creates a list where v[i] = symmetry group of i
 fn create_rawtosym(
 	num_states: usize,
 	to_coord: fn(&CubieCube) -> usize,
@@ -1073,12 +1091,13 @@ fn get_edge8_perm_symtable() -> Symtable {
 
 // ===== Heuristics =====
 
-fn get_phase1_heuristics(turns: Vec<Turn>) -> Heuristics {
-	let data_path = format!("phase1-heuristics-{:x}.dat", hash_turns(&turns));
+fn get_phase1_heuristics(turns: &Vec<Turn>) -> Heuristics {
+	let data_path = format!("phase1-heuristics-{:x}.dat", hash_turns(turns));
 
 	match load_bytes(&data_path) {
 		Ok(data) => Heuristics { data },
 		Err(_) => {
+			println!("Generating {}, this may take a while...", &data_path);
 			let toraw = create_symtoraw(
 				FLIP_UDSLICE,
 				SYM_FLIP_UDSLICE,
@@ -1090,12 +1109,12 @@ fn get_phase1_heuristics(turns: Vec<Turn>) -> Heuristics {
 
 			let stable = create_sym_movetable(
 				&toraw,
-				&turns,
+				turns,
 				get_flip_udslice_coord,
 				cube_from_flip_udslice,
 			);
 
-			let ctable = get_corner_ori_movetable(&turns);
+			let ctable = get_corner_ori_movetable(turns);
 			let symtable = get_corner_ori_symtable();
 
 			let h = gen_heuristics(ctable, stable, symtable, symstate);
@@ -1110,8 +1129,8 @@ fn get_phase1_heuristics(turns: Vec<Turn>) -> Heuristics {
 	}
 }
 
-fn get_phase2_heuristics(turns: Vec<Turn>) -> Heuristics {
-	let data_path = format!("phase2-heuristics-{:x}.dat", hash_turns(&turns));
+fn get_phase2_heuristics(turns: &Vec<Turn>) -> Heuristics {
+	let data_path = format!("phase2-heuristics-{:x}.dat", hash_turns(turns));
 
 	match load_bytes(&data_path) {
 		Ok(data) => Heuristics { data },
@@ -1127,9 +1146,9 @@ fn get_phase2_heuristics(turns: Vec<Turn>) -> Heuristics {
 			let symstate = gen_symstate(&toraw, get_corner_perm_coord, cube_from_corner_perm);
 
 			let stable =
-				create_sym_movetable(&toraw, &turns, get_corner_perm_coord, cube_from_corner_perm);
+				create_sym_movetable(&toraw, turns, get_corner_perm_coord, cube_from_corner_perm);
 
-			let ctable = get_edge8_perm_movetable(&turns);
+			let ctable = get_edge8_perm_movetable(turns);
 			let symtable = get_edge8_perm_symtable();
 
 			let h = gen_heuristics(ctable, stable, symtable, symstate);

@@ -406,7 +406,7 @@ impl ArrayCube {
 	}
 
 	/// Returns the corner at the position and it's orientation
-	/// When you turn the corner piece to it's original place, without turning the front/down, left/right side
+	/// When you turn the corner piece to it's original place, without turning the front/back, left/right side
 	/// an odd number of quarters, the orientation is as follows:
 	/// 0, if it's correctly in it's place
 	/// 1, if it's twisted once in clockwise direction.
@@ -435,8 +435,8 @@ impl ArrayCube {
 	/// Returns the edge at the position and it's orientation
 	/// If you would put the edge piece to it's home place without turning the front/back side an
 	/// odd number of quarters, the orientation is:
-	/// 0, if it's correctly in it's place
-	/// 1, if it's wrong in it's place
+	/// 0, if it's correct
+	/// 1, if it's flipped
 	pub fn get_edge_at_pos(&self, pos: Edge) -> Option<(Edge, usize)> {
 		// Get indices of the corner
 		let idx: [usize; 2] = edge_to_indices(pos).into();
@@ -741,7 +741,7 @@ mod tests {
 	}
 
 	#[test]
-	/// Each mirror should give legal cubes after
+	/// Each mirror should give legal cubes afterward
 	fn legal_symmetries() {
 		let cube = ArrayCube::from(parse_turns("R").unwrap());
 		for i in 0..NUM_SYMMETRIES {
