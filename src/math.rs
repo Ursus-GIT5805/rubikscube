@@ -15,23 +15,6 @@ const fn n_choose_k(n: usize, k: usize) -> usize {
 // 12! fits into 32bit integers
 pub const FAC: [usize; 12] = fac_list::<12>();
 
-/// Calculates (base^exp) in O(log n)
-pub const fn fast_pow(base: usize, exp: usize) -> usize {
-	let mut exp = exp;
-	let mut b = 1;
-	let mut x = 1;
-
-	while exp != 0 {
-		if (exp & 1) == 1 {
-			x *= b;
-		}
-		b *= base;
-		exp >>= 1;
-	}
-
-	x
-}
-
 /// Return the k-th permutation of the given vector
 pub fn permute_vec<T>(v: Vec<T>, k: usize) -> Vec<T>
 where
