@@ -4,13 +4,12 @@ use clap::Parser;
 use cubiecube::CubieCube;
 use strum::{Display, IntoEnumIterator};
 
-mod cube;
+pub mod cube;
+pub mod solve;
+mod math;
 
 #[cfg(feature = "interactive")]
 mod interactive;
-
-pub mod math;
-mod solve;
 
 use cube::{arraycube::ArrayCube, turn::*, *};
 
