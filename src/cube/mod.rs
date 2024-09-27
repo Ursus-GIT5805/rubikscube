@@ -79,6 +79,7 @@ impl Edge {
 
 		// Each hash matches a different edge.
 		let res = match hash {
+			// RL_FB_DU
 			0b_00_10_01 => Self::UF,
 			0b_10_00_01 => Self::UR,
 			0b_00_01_01 => Self::UB,
@@ -147,12 +148,7 @@ impl Corner {
 
 		// Match the hash
 		let res = match hash {
-			// Note that
-			// AA checks for right/left
-			// BB for front/back
-			// CC for down/up
-			//
-			// AA_BB_CC
+			// RL_FB_DU
 			0b_01_10_01 => Self::UFL,
 			0b_10_10_01 => Self::URF,
 			0b_01_01_01 => Self::ULB,
