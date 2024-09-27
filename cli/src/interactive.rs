@@ -2,9 +2,7 @@ use std::str::FromStr;
 
 use pancurses::*;
 
-use crate::cube::*;
-
-use self::arraycube::{ArrayCube, DISPLAY_GRID};
+use rubikscube::prelude::*;
 
 const OFFSET_X: i32 = 2;
 const OFFSET_Y: i32 = 1;
@@ -48,7 +46,7 @@ fn draw_cursor(win: &Window, x: usize, y: usize, clear: bool) {
 	win.mvprintw(cy, cx + 3, c);
 }
 
-fn get_cube(data: &[u8]) -> Result<ArrayCube, arraycube::FromStrError> {
+fn get_cube(data: &[u8]) -> Result<ArrayCube, ArrayCubeFromStrError> {
 	let s: String = data.iter().map(|c| (b'a' + c) as char).collect();
 	ArrayCube::from_str(&s)
 }

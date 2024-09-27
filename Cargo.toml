@@ -1,5 +1,5 @@
 [package]
-name = "rubiks-solver"
+name = "rubikscube"
 version = "0.2.0"
 edition = "2021"
 
@@ -7,13 +7,8 @@ exclude = [
     "**~",
 ]
 
-[features]
-interactive = ["dep:pancurses"]
-
 [dependencies]
-clap = { version = "*", features = ["derive"] }
 rand = "*"
-pancurses = { version = "*", features = ["wide"], optional = true }
 strum = { version = "*", features = ["derive"] }
 const_for = "*"
 bit-set = "*"

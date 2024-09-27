@@ -14,6 +14,9 @@ pub const CUBE_AREA: usize = CUBE_DIM * CUBE_DIM;
 /// The number of sides of a cube
 pub const NUM_SIDES: usize = 6;
 
+/// The number of symmetries
+pub const NUM_SYMMETRIES: usize = 48;
+
 // TODO: Change this to an enum
 #[derive(Eq, PartialEq, PartialOrd, Copy, Clone, strum::EnumCount, strum::FromRepr)]
 #[repr(u8)]
@@ -53,13 +56,6 @@ pub enum Edge {
 }
 
 pub const NUM_EDGES: usize = Edge::COUNT;
-
-#[derive(Clone, Copy, PartialEq, Eq, strum::EnumIter, strum::EnumCount, Debug)]
-#[repr(usize)]
-pub enum EdgeOrientation {
-	Normal,
-	Flipped,
-}
 
 impl Edge {
 	/// Parse the edge from the given colors.
@@ -119,17 +115,6 @@ pub enum Corner {
 }
 
 pub const NUM_CORNERS: usize = Corner::COUNT;
-
-#[derive(
-	Clone, Copy, PartialEq, Eq, Debug, strum::EnumIter, strum::EnumString, strum::EnumCount,
-)]
-#[allow(clippy::upper_case_acronyms)]
-#[repr(usize)]
-pub enum CornerOrientation {
-	Normal,
-	Clockwisetwist,
-	AntiClockwisetwist,
-}
 
 impl Corner {
 	/// Parse the corner from the given colors.

@@ -4,14 +4,10 @@ use clap::Parser;
 use cubiecube::CubieCube;
 use strum::{Display, IntoEnumIterator};
 
-pub mod cube;
-pub mod solve;
-mod math;
+use rubikscube::prelude::*;
 
 #[cfg(feature = "interactive")]
 mod interactive;
-
-use cube::{arraycube::ArrayCube, turn::*, *};
 
 #[derive(
 	PartialEq, Eq, Default, Debug, Display, Copy, Clone, strum::EnumString, strum::EnumIter,
@@ -75,6 +71,39 @@ struct Args {
 	advanced_turns: bool,
 }
 
+
+/// Solve the given cube using Kociembas Two Phase Algorithm
+pub fn solve_kociemba(initial: ArrayCube, advanced_turns: bool) -> Option<Vec<Turn>> {
+	let cube: CubieCube = initial.clone().try_into().unwrap();
+
+	let path = format!("data/kociemba_{}.dat", advanced_turns);
+	let data = match KociembaData::load(&path) {
+		Ok(data) => data,
+		Err(_) => {
+			println!("Must generate heuristics, this may take a while...");
+			let data = KociembaData::generate(advanced_turns);
+			match data.save(&path) {
+				Ok(()) => println!("Saved data to {}", path),
+				Err(e) => eprintln!("Could not save data: {}", e),
+			}
+			data
+		}
+	};
+
+	let mut solver = Solver::new(data);
+
+	let out = solver.solve(cube);
+
+	#[cfg(debug_assertions)]
+	if let Some(turns) = out.clone() {
+		let mut c = initial;
+		c.apply_turns(turns);
+		assert!(c.is_solved());
+	}
+
+	out
+}
+
 fn main() -> Result<(), Box<dyn Error>> {
 	#[cfg(debug_assertions)]
 	std::env::set_var("RUST_BACKTRACE", "1");
@@ -135,8 +164,8 @@ fn main() -> Result<(), Box<dyn Error>> {
 
 		// Choose algorithm to use
 		let seq = match args.algorithm {
-			SolveAlgorithm::Thistlewaite => solve::thistlewhaite::solve(cube),
-			SolveAlgorithm::Kociemba => solve::kociemba::solve(cube, args.advanced_turns),
+			SolveAlgorithm::Thistlewaite => rubikscube::solve::thistlewhaite::solve(cube),
+			SolveAlgorithm::Kociemba => solve_kociemba(cube, args.advanced_turns),
 		};
 
 		match seq {

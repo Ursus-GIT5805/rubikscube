@@ -5,13 +5,13 @@ use strum::IntoEnumIterator;
 
 use crate::{cube::*, math::*};
 
-pub type Ori = u32; // and the blind forest
+type Ori = u32; // and the blind forest
 
 type CornerList = [(Corner, Ori); NUM_CORNERS];
 type EdgeList = [(Edge, Ori); NUM_EDGES];
 
 /// The cube specification as Kociemba published in
-/// https://kociemba.org/math/cubielevel.htm
+/// <https://kociemba.org/math/cubielevel.htm>
 ///
 /// Uses more space than necessary, but gives
 /// very good insights about the cubes properties.
@@ -273,9 +273,7 @@ const TE_S_LR: EdgeList = [
 	(Edge::FL, 0), (Edge::BL, 0), (Edge::BR, 0), (Edge::FR, 0),
 ];
 
-pub const NUM_SYMMETRIES: usize = 48;
-
-pub const fn generate_symmetries() -> [(CornerList, EdgeList); NUM_SYMMETRIES] {
+const fn generate_symmetries() -> [(CornerList, EdgeList); NUM_SYMMETRIES] {
 	let mut out = [(TC_BASE, TE_BASE); NUM_SYMMETRIES];
 
 	const_for!(x1 in 0..3 => {
@@ -355,27 +353,6 @@ const fn generate_symmetry_inverse_list() -> [usize; NUM_SYMMETRIES] {
 
 const SYMMETRY_INVERSE: [usize; NUM_SYMMETRIES] = generate_symmetry_inverse_list();
 
-pub fn get_symmetry(cube: &CubieCube, sym: usize) -> CubieCube {
-	let inv = SYMMETRY_INVERSE[sym];
-	let c = cube.corners;
-	let e = cube.edges;
-
-	let (tc, te) = SYMMETRIES[sym];
-	let (tci, tei) = SYMMETRIES[inv];
-
-	let c_res = chain_corners(tc, chain_corners(c, tci));
-	let e_res = chain_edges(te, chain_edges(e, tei));
-
-	CubieCube {
-		corners: c_res,
-		edges: e_res,
-	}
-}
-
-pub fn get_symmetry_inv(cube: &CubieCube, sym: usize) -> CubieCube {
-	get_symmetry(cube, SYMMETRY_INVERSE[sym])
-}
-
 // ==========
 
 /// The number of different (legal) orientation configuration of corners
@@ -395,6 +372,7 @@ impl Default for CubieCube {
 }
 
 impl CubieCube {
+	/// Create a new solved cube
 	pub const fn new() -> Self {
 		CubieCube {
 			corners: TC_BASE,
@@ -435,6 +413,13 @@ impl CubieCube {
 		cubie
 	}
 
+	/// Apply a list of turns in order
+	pub fn apply_turns(&mut self, turns: Vec<Turn>) {
+		for turn in turns {
+			self.apply_turn(turn);
+		}
+	}
+
 	/// Get the corner and orientation at position 'c'
 	pub const fn corner_at(&self, c: Corner) -> (Corner, Ori) {
 		self.corners[c as usize]
@@ -443,6 +428,29 @@ impl CubieCube {
 	/// Get the edge and orientation at position 'e'
 	pub const fn edge_at(&self, e: Edge) -> (Edge, Ori) {
 		self.edges[e as usize]
+	}
+
+	/// Return the sym-th symmetry of the current cube
+	pub fn get_symmetry(&self, sym: usize) -> CubieCube {
+		let inv = SYMMETRY_INVERSE[sym];
+		let c = self.corners;
+		let e = self.edges;
+
+		let (tc, te) = SYMMETRIES[sym];
+		let (tci, tei) = SYMMETRIES[inv];
+
+		let c_res = chain_corners(tc, chain_corners(c, tci));
+		let e_res = chain_edges(te, chain_edges(e, tei));
+
+		CubieCube {
+			corners: c_res,
+			edges: e_res,
+		}
+	}
+
+	/// Get the inverse symmetry cube of the sym-th symmetry
+	pub fn get_inv_symmetry(&self, sym: usize) -> CubieCube {
+		self.get_symmetry(SYMMETRY_INVERSE[sym])
 	}
 
 	// ===== Coordinates functions =====
@@ -735,8 +743,8 @@ mod tests {
 			cubie.apply_turn(turn);
 
 			for i in 0..NUM_SYMMETRIES {
-				let sarray = arraycube::get_symmetry(&array, i);
-				let scubie = cubiecube::get_symmetry(&cubie, i);
+				let sarray = array.get_symmetry(i);
+				let scubie = cubie.get_symmetry(i);
 
 				let convert: ArrayCube = scubie.into();
 

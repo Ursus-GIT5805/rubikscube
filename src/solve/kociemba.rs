@@ -1,6 +1,6 @@
 /*
 * This algorithm is the algorithm Herbert Kociemba published on
-* https://kociemba.org/cube.htm
+* <https://kociemba.org/cube.htm>
 *
 * But it has a lot of changes and simplfications.
 
@@ -12,7 +12,12 @@ use std::io::{Read, Write};
 use rayon::prelude::*;
 use strum::IntoEnumIterator;
 
-use crate::{arraycube::ArrayCube, cubiecube::*, parse_turns, Edge, RubiksCube, Turn, NUM_EDGES};
+use crate::cube::cubiecube::*;
+use crate::cube::NUM_SYMMETRIES;
+use crate::cube::{
+	turn::{parse_turns, Turn},
+	Edge, RubiksCube, NUM_EDGES,
+};
 
 use crate::math::*;
 
@@ -485,7 +490,15 @@ impl Solver {
 	}
 
 	/// Solve the given cube and return a sequence if possible
-	pub fn solve(&mut self, cube: CubieCube) -> Option<Vec<Turn>> {
+	pub fn solve<T>(&mut self, cube: T) -> Option<Vec<Turn>>
+	where
+		T: TryInto<CubieCube>,
+	{
+		let cube = match cube.try_into() {
+			Ok(cube) => cube,
+			Err(_) => return None,
+		};
+
 		if !cube.is_solvable() {
 			return None;
 		}
@@ -793,7 +806,7 @@ fn create_symtoraw(
 		used.insert(idx);
 		for sym in 1..16 {
 			// Generate new cube
-			let csym = get_symmetry(&cube, sym);
+			let csym = cube.get_symmetry(sym);
 			let n = to_coord(&csym); // get coordinate
 
 			// Say that this cube is already used
@@ -825,7 +838,7 @@ fn create_rawtosym(
 		out[idx] = (symidx as u16, 0);
 		for sym in 1..16 {
 			// Generate new cube and get coord
-			let csym = get_symmetry(&cube, sym);
+			let csym = cube.get_symmetry(sym);
 			let n = to_coord(&csym);
 
 			out[n] = (symidx as u16, sym as u8);
@@ -850,7 +863,7 @@ fn create_symtable(
 			(0..num_symmetries)
 				.into_par_iter()
 				.map(|symidx| {
-					let csym = get_symmetry_inv(&cube, symidx);
+					let csym = cube.get_inv_symmetry(symidx);
 					to_coord(&csym) as u16
 				})
 				.collect()
@@ -894,7 +907,7 @@ fn get_sym_class(
 	to_coord: fn(&CubieCube) -> usize,
 ) -> Option<(usize, usize)> {
 	for sym in 0..NUM_SYMMETRIES {
-		let c = get_symmetry_inv(cube, sym);
+		let c = cube.get_inv_symmetry(sym);
 		let dst = to_coord(&c) as u32;
 
 		if let Ok(k) = symtoraw.binary_search(&dst) {
@@ -919,7 +932,7 @@ fn gen_symstate(
 			// possible moves todo afterward!
 			let mut out = 0;
 			for sym in 1..16 {
-				let csym = get_symmetry(&cube, sym);
+				let csym = cube.get_symmetry(sym);
 				let idx = to_coord(&csym);
 
 				if idx == raw {
@@ -1102,38 +1115,4 @@ fn get_into_edge8perm() -> Vec<Vec<u16>> {
 				.collect()
 		})
 		.collect()
-}
-
-/// Solve the given cube using Kociembas Two Phase Algorithm
-///
-/// advanced_turns: Specify whether to use the advanced turnset (M, E, S...)
-pub fn solve(initial: ArrayCube, advanced_turns: bool) -> Option<Vec<Turn>> {
-	let cube: CubieCube = initial.clone().try_into().unwrap();
-
-	let path = format!("data/kociemba_{}.dat", advanced_turns);
-	let data = match KociembaData::load(&path) {
-		Ok(data) => data,
-		Err(_) => {
-			println!("Must generate heuristics, this may take a while...");
-			let data = KociembaData::generate(advanced_turns);
-			match data.save(&path) {
-				Ok(()) => println!("Saved data to {}", path),
-				Err(e) => eprintln!("Could not save data: {}", e),
-			}
-			data
-		}
-	};
-
-	let mut solver = Solver::new(data);
-
-	let out = solver.solve(cube);
-
-	#[cfg(debug_assertions)]
-	if let Some(turns) = out.clone() {
-		let mut c = initial;
-		c.apply_turns(turns);
-		assert!(c.is_solved());
-	}
-
-	out
 }

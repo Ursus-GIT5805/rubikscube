@@ -9,7 +9,8 @@ const CUBEDATA_LEN: usize = CUBE_AREA * NUM_SIDES;
 
 type CubeData = [u8; CUBEDATA_LEN];
 
-/// A Rubiks Cube representation, using a single array
+/// A Rubiks Cube representation, using a single array.
+///
 /// Fast for turning and low in memory usage
 /// But it's clunky to use when needing insights about corners and edges.
 #[derive(Clone, PartialEq, Eq, Hash, std::fmt::Debug)]
@@ -176,7 +177,7 @@ fn convert_vec_to_transformation(turns: &Vec<Turn>) -> CubeData {
 // =========
 
 #[derive(thiserror::Error, Debug)]
-pub enum FromStrError {
+pub enum ArrayCubeFromStrError {
 	#[error("The given string does not have length {}", CUBEDATA_LEN)]
 	Length,
 	#[error("The corner at position {0} has a invalid color combination")]
@@ -188,11 +189,11 @@ pub enum FromStrError {
 }
 
 impl FromStr for ArrayCube {
-	type Err = FromStrError;
+	type Err = ArrayCubeFromStrError;
 
 	fn from_str(s: &str) -> Result<Self, Self::Err> {
 		if s.len() != CUBEDATA_LEN {
-			return Err(FromStrError::Length);
+			return Err(ArrayCubeFromStrError::Length);
 		}
 
 		let mut cube = ArrayCube::new();
@@ -210,7 +211,7 @@ impl FromStr for ArrayCube {
 		for pos in Corner::iter() {
 			let (c, o) = match cube.get_corner_at_pos(pos) {
 				Some(v) => v,
-				None => return Err(FromStrError::Corner(pos)),
+				None => return Err(ArrayCubeFromStrError::Corner(pos)),
 			};
 
 			// The 3 indices to write to
@@ -223,7 +224,7 @@ impl FromStr for ArrayCube {
 				if cube.data[idx] as usize / CUBE_AREA == cols[colidx] / CUBE_AREA {
 					cube.data[idx] = cols[colidx] as u8;
 				} else {
-					return Err(FromStrError::CornerOrder(pos));
+					return Err(ArrayCubeFromStrError::CornerOrder(pos));
 				}
 			}
 		}
@@ -231,7 +232,7 @@ impl FromStr for ArrayCube {
 		for pos in Edge::iter() {
 			let (e, o) = match cube.get_edge_at_pos(pos) {
 				Some(v) => v,
-				None => return Err(FromStrError::Edge(pos)),
+				None => return Err(ArrayCubeFromStrError::Edge(pos)),
 			};
 
 			// The 2 indices to write to
@@ -266,7 +267,16 @@ impl RubiksCube for ArrayCube {
 	}
 }
 
-/// Return the indices for CubeData given the corner c as a position.
+/// Return the indices of an ArrayCube given the corner c as a position.
+///
+/// ```
+/// use rubikscube::prelude::*;
+///
+/// let cube = ArrayCube::new(); // solved cube
+/// let (u,f) = edge_to_indices(Edge::UF);
+/// assert!(cube.color_at(u) == Side::Up);
+/// assert!(cube.color_at(f) == Side::Front);
+/// ```
 pub const fn corner_to_indices(c: Corner) -> (usize, usize, usize) {
 	// Return index of (x/y) at the given side
 	const fn help(side: Side, x: usize, y: usize) -> usize {
@@ -320,7 +330,16 @@ pub const fn corner_to_indices(c: Corner) -> (usize, usize, usize) {
 	}
 }
 
-/// Return the indices for CubeData given the edge e as a position.
+/// Return the indices of an ArrayCube given the edge e as a position.
+///
+/// ```
+/// use rubikscube::prelude::*;
+///
+/// let cube = ArrayCube::new(); // solved cube
+/// let (u,f) = edge_to_indices(Edge::UF);
+/// assert!(cube.color_at(u) == Side::Up);
+/// assert!(cube.color_at(f) == Side::Front);
+/// ```
 pub const fn edge_to_indices(e: Edge) -> (usize, usize) {
 	// Return index of (x/y) at the given side
 	const fn help(side: Side, x: usize, y: usize) -> usize {
@@ -364,6 +383,7 @@ pub const DISPLAY_GRID: [[usize; 4 * CUBE_DIM]; 3 * CUBE_DIM] = [
 ];
 
 impl ArrayCube {
+	/// Create a new solved cube
 	pub fn new() -> Self {
 		Self::default()
 	}
@@ -403,6 +423,19 @@ impl ArrayCube {
 		for turn in turns {
 			self.apply_turn(turn);
 		}
+	}
+
+	/// Return the sym-th symmetry of the current cube
+	pub fn get_symmetry(&self, sym: usize) -> ArrayCube {
+		let inv = SYMMETRY_INVERSE[sym];
+		let t = chain_transform(SYMMETRIES[sym], chain_transform(self.data, SYMMETRIES[inv]));
+
+		ArrayCube { data: t }
+	}
+
+	/// Get the inverse symmetry cube of the sym-th symmetry
+	pub fn get_inv_symmetry(&self, sym: usize) -> ArrayCube {
+		self.get_symmetry(SYMMETRY_INVERSE[sym])
 	}
 
 	/// Returns the corner at the position and it's orientation
@@ -525,8 +558,6 @@ const T_S_LR2: CubeData = [
 	38, 37, 36, 41, 40, 39, 44, 43, 42, // right
 ];
 
-pub const NUM_SYMMETRIES: usize = 48;
-
 /// Generate all transformation based from the base symmetries
 const fn generate_symmetries() -> [CubeData; NUM_SYMMETRIES] {
 	let mut out = [[0; CUBEDATA_LEN]; NUM_SYMMETRIES];
@@ -586,12 +617,6 @@ const SYMMETRY_INVERSE: [usize; NUM_SYMMETRIES] = generate_symmetry_inverse_list
 
 #[allow(dead_code)]
 /// Return the i-th symmetry of cube
-pub fn get_symmetry(cube: &ArrayCube, i: usize) -> ArrayCube {
-	let inv = SYMMETRY_INVERSE[i];
-	let t = chain_transform(SYMMETRIES[i], chain_transform(cube.data, SYMMETRIES[inv]));
-
-	ArrayCube { data: t }
-}
 
 // ===== Tests =====
 
@@ -601,11 +626,7 @@ mod tests {
 
 	use crate::cube::arraycube::ArrayCube;
 	use crate::cube::*;
-	use arraycube::{
-		chain_transform, get_symmetry, is_base, CubeData, CUBEDATA_LEN, NUM_SYMMETRIES, SYMMETRIES,
-		SYMMETRY_INVERSE, TRANSFORM,
-	};
-	use strum::*;
+	use arraycube::*;
 
 	#[test]
 	/// Test for basic turning and their correctness
@@ -745,7 +766,7 @@ mod tests {
 	fn legal_symmetries() {
 		let cube = ArrayCube::from(parse_turns("R").unwrap());
 		for i in 0..NUM_SYMMETRIES {
-			let c = get_symmetry(&cube, i);
+			let c = cube.get_symmetry(i);
 
 			for corner in Corner::iter() {
 				assert!(c.get_corner_at_pos(corner).is_some());

@@ -1,0 +1,24 @@
+[package]
+name = "rubiks-solver"
+version = "0.2.0"
+edition = "2021"
+
+exclude = [
+    "**~",
+]
+
+[features]
+interactive = ["dep:pancurses"]
+
+[dependencies]
+rubikscube = { path = ".." }
+strum = "*"
+clap = { version = "*", features = ["derive"] }
+pancurses = { version = "*", features = ["wide"], optional = true }
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = 'abort'
+strip = true
