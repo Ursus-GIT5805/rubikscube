@@ -47,6 +47,10 @@ struct Args {
 	#[arg(long, default_value_t = false)]
 	solve: bool,
 
+	/// Output length of sequence (if --solve is used)
+	#[arg(short, long, default_value_t = false)]
+	length: bool,
+
 	/// Output the cube as a string rather than colored
 	#[arg(short, long, default_value_t = false)]
 	char_print: bool,
@@ -136,10 +140,15 @@ fn main() -> std::io::Result<()> {
 
 		match seq {
 			Some(turns) => {
+				let len = turns.len();
 				for turn in turns {
 					write!(out.as_mut(), "{} ", turn)?;
 				}
-				writeln!(out.as_mut())?;
+				if args.length {
+					writeln!(out.as_mut(), "(len={})", len)?;
+				} else {
+					writeln!(out.as_mut())?;
+				}
 				return Ok(());
 			}
 			None => {
