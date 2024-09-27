@@ -1,4 +1,5 @@
 use rand::Rng;
+use serde::{Deserialize, Serialize};
 use strum::{EnumCount, IntoEnumIterator};
 
 use std::iter::Iterator;
@@ -19,6 +20,8 @@ pub const NUM_TURNWISES: usize = 3;
 	strum::EnumCount,
 	strum::EnumString,
 	strum::Display,
+	Serialize,
+	Deserialize,
 )]
 #[repr(u8)]
 pub enum TurnType {
@@ -43,7 +46,9 @@ pub enum TurnType {
 pub const NUM_TURNTYPES: usize = TurnType::COUNT;
 
 /// You can either turn a side in (Counter-)Clockwise and Half turns, that's the wise of a turn.
-#[derive(Clone, Copy, PartialEq, Eq, Hash, strum::EnumIter, std::fmt::Debug)]
+#[derive(
+	Clone, Copy, PartialEq, Eq, Hash, strum::EnumIter, std::fmt::Debug, Serialize, Deserialize,
+)]
 pub enum TurnWise {
 	Clockwise,
 	Double,
@@ -66,7 +71,7 @@ impl std::fmt::Display for TurnWise {
 ///
 /// side: The side/slice or similar to turn
 /// wise: See the definiton of TurnWise
-#[derive(Clone, Copy, PartialEq, Eq, Hash, std::fmt::Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, std::fmt::Debug, Serialize, Deserialize)]
 pub struct Turn {
 	pub side: TurnType,
 	pub wise: TurnWise,

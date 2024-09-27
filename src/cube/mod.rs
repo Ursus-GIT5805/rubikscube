@@ -65,8 +65,9 @@ impl Edge {
 	/// Parse the edge from the given colors.
 	/// Returns None if there exist no Edge with the given colors.
 	pub fn parse_edge(col: &[Side]) -> Option<Self> {
-		#[cfg(debug_assertions)]
-		assert!(col.len() == 2);
+		if col.len() != 2 {
+			return None;
+		}
 
 		// Create a hash out of the color
 		let hash = {
@@ -134,8 +135,9 @@ impl Corner {
 	/// Parse the corner from the given colors.
 	/// If no corner with the given colors exist, the function returns None.
 	pub fn parse_corner(col: &[Side]) -> Option<Self> {
-		#[cfg(debug_assertions)]
-		assert!(col.len() == 3);
+		if col.len() != 3 {
+			return None;
+		}
 
 		// Create a hash
 		let hash = {

@@ -1,14 +1,13 @@
 /*
- * This algorithm is the algorithm Herbert Kociemba published on
- * https://kociemba.org/cube.htm
- *
- * But it has a lot of changes and simplfications.
- */
+* This algorithm is the algorithm Herbert Kociemba published on
+* https://kociemba.org/cube.htm
+*
+* But it has a lot of changes and simplfications.
 
-use std::error::Error;
-use std::hash::{DefaultHasher, Hash, Hasher};
+*/
+
+use serde::{Deserialize, Serialize};
 use std::io::{Read, Write};
-use std::path::PathBuf;
 
 use rayon::prelude::*;
 use strum::IntoEnumIterator;
@@ -37,8 +36,6 @@ type RawToSymTable = Vec<(u16, u8)>;
 
 /// A state which contains all i where S[i] * A S[i]^-1 = A
 type SymState = Vec<u32>;
-
-type GenericResult<T> = std::result::Result<T, Box<dyn Error>>;
 
 const RLSLICE_EDGES: [Edge; 4] = [Edge::UF, Edge::DF, Edge::DB, Edge::UB];
 const FBSLICE_EDGES: [Edge; 4] = [Edge::UR, Edge::DR, Edge::DL, Edge::UL];
@@ -97,15 +94,6 @@ impl From<Vec<u8>> for Heuristics {
 
 // =====
 
-/// Return a hash of the given sequence
-fn hash_turns(turns: &[Turn]) -> u64 {
-	let mut hasher = DefaultHasher::new();
-	for turn in turns.iter() {
-		turn.hash(&mut hasher);
-	}
-	hasher.finish()
-}
-
 #[derive(Clone, Debug)]
 struct CoordPhase1 {
 	// Coordinates
@@ -140,6 +128,7 @@ impl CoordPhase1 {
 	}
 }
 
+#[derive(Serialize, Deserialize)]
 struct DataPhase1 {
 	turns: Vec<Turn>,
 
@@ -160,23 +149,81 @@ struct DataPhase1 {
 impl DataPhase1 {
 	/// Get all the tables needed for phase 1
 	pub fn new(turns: Vec<Turn>) -> Self {
+		let corner_ori_move = create_movetable(
+			CORNER_ORI,
+			&turns,
+			get_corner_ori_coord,
+			cube_from_corner_ori,
+		);
+
+		let edge_ori_move =
+			create_movetable(EDGE_ORI, &turns, get_edge_ori_coord, cube_from_edge_ori);
+
+		let slice_move = create_movetable(
+			SLICE_SORTED,
+			&turns,
+			get_udslice_sorted_coord,
+			cube_from_udslice_sorted,
+		);
+
+		let corner_perm_move = create_movetable(
+			CORNER_PERM,
+			&turns,
+			get_corner_perm_coord,
+			cube_from_corner_perm,
+		);
+
+		let flipudslice_toraw = create_symtoraw(
+			FLIP_UDSLICE,
+			SYM_FLIP_UDSLICE,
+			get_flip_udslice_coord,
+			cube_from_flip_udslice,
+		);
+
+		let flipudslice_symstate = gen_symstate(
+			&flipudslice_toraw,
+			get_flip_udslice_coord,
+			cube_from_flip_udslice,
+		);
+		let flipudslice_symmove = create_sym_movetable(
+			&flipudslice_toraw,
+			&turns,
+			get_flip_udslice_coord,
+			cube_from_flip_udslice,
+		);
+		let cornersym = create_symtable(CORNER_ORI, 16, get_corner_ori_coord, cube_from_corner_ori);
+		let heuristic = gen_heuristics(
+			&corner_ori_move,
+			&flipudslice_symmove,
+			&cornersym,
+			&flipudslice_symstate,
+		);
+
+		let into_edge8_perm = get_into_edge8perm();
+
+		let rawtosym =
+			create_rawtosym(FLIP_UDSLICE, get_flip_udslice_coord, cube_from_flip_udslice);
+
 		Self {
 			turns: turns.clone(),
-			corner_ori_move: get_corner_ori_movetable(&turns),
-			edge_ori_move: get_edge_ori_movetable(&turns),
-			slice_move: get_slice_sorted_movetable(&turns),
-			corner_perm_move: get_corner_perm_movetable(&turns),
-			heuristic: get_phase1_heuristics(turns),
-			cornersym: get_corner_ori_symtable(),
-			into_edge8_perm: get_into_edge8perm(),
-			rawtosym: get_flip_udslice_rawtosym(),
+			corner_ori_move,
+			edge_ori_move,
+			slice_move,
+			corner_perm_move,
+			heuristic,
+			cornersym,
+			into_edge8_perm,
+			rawtosym,
 		}
 	}
 
 	fn heuristic_at(&self, c: &CoordPhase1) -> u8 {
-		let (dz, sym) = self.rawtosym[c.edge_ori + (c.udslice_sorted / 24) * EDGE_ORI];
-		let csym = self.cornersym[c.corner_ori][sym as usize] as usize;
-		let coord = csym + CORNER_ORI * dz as usize;
+		let (dz, sym) = self
+			.rawtosym
+			.get(c.edge_ori + (c.udslice_sorted / 24) * EDGE_ORI)
+			.expect("Could not get heuristics!");
+		let csym = self.cornersym[c.corner_ori][*sym as usize] as usize;
+		let coord = csym + CORNER_ORI * *dz as usize;
 
 		match self.heuristic.get(coord) {
 			Some(t) => t,
@@ -240,6 +287,7 @@ struct CoordPhase2 {
 	udslice_sorted: usize,
 }
 
+#[derive(Serialize, Deserialize)]
 struct DataPhase2 {
 	turns: Vec<Turn>,
 
@@ -261,14 +309,62 @@ struct DataPhase2 {
 impl DataPhase2 {
 	/// Get all the tables needed for phase 2
 	pub fn new(turns: Vec<Turn>) -> Self {
+		let corner_perm_move = create_movetable(
+			CORNER_PERM,
+			&turns,
+			get_corner_perm_coord,
+			cube_from_corner_perm,
+		);
+
+		let edge8_perm_move =
+			create_movetable(EDGE8_PERM, &turns, get_edge8_perm, cube_from_edge_perm);
+		let slice_move = create_movetable(
+			24, // = 4!
+			&turns,
+			get_udslice_sorted_coord,
+			cube_from_udslice_sorted,
+		);
+
+		let corner_perm_toraw = create_symtoraw(
+			CORNER_PERM,
+			SYM_CORNER_PERM,
+			get_corner_perm_coord,
+			cube_from_corner_perm,
+		);
+
+		let corner_perm_symstate = gen_symstate(
+			&corner_perm_toraw,
+			get_corner_perm_coord,
+			cube_from_corner_perm,
+		);
+
+		let stable = create_sym_movetable(
+			&corner_perm_toraw,
+			&turns,
+			get_corner_perm_coord,
+			cube_from_corner_perm,
+		);
+
+		let edge8_symtable = create_symtable(EDGE8_PERM, 16, get_edge8_perm, cube_from_edge_perm);
+
+		let heuristic = gen_heuristics(
+			&edge8_perm_move,
+			&stable,
+			&edge8_symtable,
+			&corner_perm_symstate,
+		);
+
+		let corner_perm_rawtosym =
+			create_rawtosym(CORNER_PERM, get_corner_perm_coord, cube_from_corner_perm);
+
 		Self {
-			turns: turns.clone(),
-			corner_perm_move: get_corner_perm_movetable(&turns),
-			edge8_perm_move: get_edge8_perm_movetable(&turns),
-			slice_move: get_udslice_perm_movetable(&turns),
-			heuristic: get_phase2_heuristics(turns.clone()),
-			edgesym: get_edge8_perm_symtable(),
-			rawtosym: get_corner_perm_rawtosym(),
+			turns,
+			corner_perm_move,
+			edge8_perm_move,
+			slice_move,
+			heuristic,
+			edgesym: edge8_symtable,
+			rawtosym: corner_perm_rawtosym,
 		}
 	}
 
@@ -312,24 +408,15 @@ impl DataPhase2 {
 	}
 }
 
-/// Solver
-///
-/// Initialises all tables on construction, which
-/// may take a while.
-pub struct Solver {
+#[derive(Serialize, Deserialize)]
+/// Struct containing all data tables used for the Kociemba algorithm
+pub struct KociembaData {
 	phase1: DataPhase1,
 	phase2: DataPhase2,
-
-	sol: Option<Vec<Turn>>,
-	start: std::time::Instant,
 }
 
-/// Maximum solving time for the solving algorithm.
-const MAX_SOLVING_TIME: u128 = 100;
-
-impl Solver {
-	/// Initialise the solver
-	pub fn new(advanced_turns: bool) -> Self {
+impl KociembaData {
+	pub fn generate(advanced_turns: bool) -> Self {
 		let turns_phase1 = if advanced_turns {
 			crate::cube::turn::all_turns()
 		} else {
@@ -345,7 +432,53 @@ impl Solver {
 		Self {
 			phase1: DataPhase1::new(turns_phase1),
 			phase2: DataPhase2::new(turns_phase2),
+		}
+	}
 
+	pub fn load(path: &String) -> std::io::Result<Self> {
+		let mut file = std::fs::File::open(path)?;
+		let mut buf = vec![];
+		file.read_to_end(&mut buf)?;
+		let decoded: Self = bincode::deserialize(&buf).map_err(|e| {
+			std::io::Error::new(
+				std::io::ErrorKind::InvalidData,
+				format!("Could not deserialize: {}", e),
+			)
+		})?;
+		Ok(decoded)
+	}
+
+	pub fn save(&self, path: &String) -> std::io::Result<()> {
+		let mut file = std::fs::File::create(path)?;
+		let encode: Vec<u8> = bincode::serialize(&self).map_err(|e| {
+			std::io::Error::new(
+				std::io::ErrorKind::InvalidInput,
+				format!("Could not serialize: {}", e),
+			)
+		})?;
+		file.write_all(&encode)?;
+
+		Ok(())
+	}
+}
+
+/// Solver struct which uses Kociemba two phase algorithm to solve the
+/// cube.
+pub struct Solver {
+	data: KociembaData,
+
+	sol: Option<Vec<Turn>>,
+	start: std::time::Instant,
+}
+
+/// Maximum solving time for the solving algorithm.
+const MAX_SOLVING_TIME: u128 = 100;
+
+impl Solver {
+	/// Initialise the solver
+	pub fn new(data: KociembaData) -> Self {
+		Self {
+			data,
 			sol: None,
 			start: std::time::Instant::now(),
 		}
@@ -385,8 +518,8 @@ impl Solver {
 		}
 
 		// Phase 1 done, search a solution in phase 2
-		if self.phase1.is_solved(&c) {
-			let next = self.phase1.convert_to_phase2_coord(&c);
+		if self.data.phase1.is_solved(&c) {
+			let next = self.data.phase1.convert_to_phase2_coord(&c);
 
 			for d in 0..=18 {
 				if self.search_phase2(next.clone(), path, d) {
@@ -400,11 +533,11 @@ impl Solver {
 		}
 
 		// Sort all neighbouring cubes by how many turns you'll waste
-		for (w, i) in self.phase1.succ(&c) {
-			path.push(self.phase1.turns[i]);
+		for (w, i) in self.data.phase1.succ(&c) {
+			path.push(self.data.phase1.turns[i]);
 
 			let mut next = c.clone();
-			self.phase1.apply_turn(&mut next, i);
+			self.data.phase1.apply_turn(&mut next, i);
 
 			if self.search_phase1(next, path, depth - w as isize) {
 				return true;
@@ -429,7 +562,7 @@ impl Solver {
 		}
 
 		// Solved the cube, terminate phase 2 and search for other solutions
-		if self.phase2.is_solved(&c) {
+		if self.data.phase2.is_solved(&c) {
 			self.sol = Some(path.clone());
 			return true;
 		}
@@ -438,11 +571,11 @@ impl Solver {
 			return false;
 		}
 
-		for (w, i) in self.phase2.succ(&c) {
-			path.push(self.phase2.turns[i]);
+		for (w, i) in self.data.phase2.succ(&c) {
+			path.push(self.data.phase2.turns[i]);
 
 			let mut next = c.clone();
-			self.phase2.apply_turn(&mut next, i);
+			self.data.phase2.apply_turn(&mut next, i);
 
 			let res = self.search_phase2(next, path, depth - w as isize);
 			path.pop();
@@ -474,12 +607,26 @@ fn get_corner_perm_coord(cube: &CubieCube) -> usize {
 }
 
 fn get_edge8_perm(cube: &CubieCube) -> usize {
-	cube.get_edge8_permutation_coord()
+	let perm: Vec<_> = cube
+		.edges
+		.iter()
+		.take(8)
+		.map(|(e, _)| *e as usize)
+		.collect();
+
+	map_permutation(&perm)
 }
 
 fn get_flip_udslice_coord(cube: &CubieCube) -> usize {
 	let edge = cube.get_edge_orientation_coord();
-	let udslice_coord = cube.get_udslice_coord();
+	let chosen: Vec<_> = Edge::iter()
+		.map(|pos| {
+			let (e, _) = cube.edge_at(pos);
+			UDSLICE_EDGES.contains(&e)
+		})
+		.collect();
+
+	let udslice_coord = map_nck(&chosen);
 	udslice_coord * EDGE_ORI + edge
 }
 
@@ -523,12 +670,12 @@ fn cube_from_edge_ori(coord: usize) -> CubieCube {
 	cube
 }
 
-/// Return a cube distributing the edges according to idx
+/// Return a cube distributing the edges according to coord
 /// The idx is the idx-th type of n choose k
-fn cube_from_edge_pos(edges: Vec<Edge>, idx: usize) -> CubieCube {
+fn cube_from_edge_pos(edges: Vec<Edge>, coord: usize) -> CubieCube {
 	let mut cube = CubieCube::new();
 
-	let chosen = get_nck(NUM_EDGES, edges.len(), idx);
+	let chosen = get_nck(NUM_EDGES, edges.len(), coord);
 
 	let mut m = 0;
 	let mut n = 0;
@@ -563,28 +710,30 @@ fn cube_from_flip_udslice(idx: usize) -> CubieCube {
 	cube
 }
 
-fn cube_from_udslice_sorted(idx: usize) -> CubieCube {
-	let pos = idx / 24;
-	let ord = idx % 24;
+fn cube_from_udslice_sorted(coord: usize) -> CubieCube {
+	let pos = coord / 24;
+	let ord = coord % 24;
 
 	let slice = permute_vec(UDSLICE_EDGES.to_vec(), ord);
 	cube_from_edge_pos(slice, pos)
 }
 
-fn cube_from_fbslice_sorted(idx: usize) -> CubieCube {
-	let pos = idx / 24;
-	let ord = idx % 24;
+fn cube_from_fbslice_sorted(coord: usize) -> CubieCube {
+	let pos = coord / 24;
+	let ord = coord % 24;
 
 	let slice = permute_vec(FBSLICE_EDGES.to_vec(), ord);
 	cube_from_edge_pos(slice, pos)
 }
 
+/// Cube from corner permutation coord
 fn cube_from_corner_perm(coord: usize) -> CubieCube {
 	let mut cube = CubieCube::new();
 	cube.set_corner_permutation(coord);
 	cube
 }
 
+/// Cube from edge permutation coord
 fn cube_from_edge_perm(coord: usize) -> CubieCube {
 	let mut cube = CubieCube::new();
 	cube.set_edge_permutation(coord);
@@ -619,6 +768,7 @@ fn create_movetable(
 		.collect()
 }
 
+/// Creates a list where v[i] is an element of symmetry group i
 fn create_symtoraw(
 	num_states: usize,
 	num_symmetry_states: usize,
@@ -654,6 +804,7 @@ fn create_symtoraw(
 	out
 }
 
+/// Creates a list where v[i] = symmetry group of i
 fn create_rawtosym(
 	num_states: usize,
 	to_coord: fn(&CubieCube) -> usize,
@@ -785,10 +936,10 @@ fn gen_symstate(
 /// Both phase 1 and 2 use a raw coordinate in combination
 /// with a sym coordinate.
 fn gen_heuristics(
-	movetable: Movetable,
-	symmovetable: SymMovetable,
-	symtable: Symtable,
-	symstate: SymState,
+	movetable: &Movetable,
+	symmovetable: &SymMovetable,
+	symtable: &Symtable,
+	symstate: &SymState,
 ) -> Heuristics {
 	// The length of the output table
 	let n = symmovetable.len() * movetable.len();
@@ -908,308 +1059,73 @@ fn gen_heuristics(
 	Heuristics::from(out)
 }
 
-// ===== Loading/Saving data functions =====
-
-fn get_data_path(filename: &String) -> std::io::Result<PathBuf> {
-	let mut pathbuf = std::env::current_dir()?;
-	pathbuf.push("data");
-	pathbuf.push(filename);
-	Ok(pathbuf)
-}
-
-fn load_data<T>(path: &String) -> GenericResult<T>
-where
-	for<'a> T: serde::Deserialize<'a>,
-{
-	let pathbuf = get_data_path(path)?;
-	let mut file = std::fs::File::open(pathbuf)?;
-	let mut buf = vec![];
-	file.read_to_end(&mut buf)?;
-	let decoded: T = bincode::deserialize(&buf)?;
-
-	Ok(decoded)
-}
-
-fn save_data<T>(path: &String, data: &T) -> GenericResult<()>
-where
-	T: serde::Serialize,
-{
-	let pathbuf = get_data_path(path)?;
-	let mut file = std::fs::File::create(pathbuf)?;
-	let encode: Vec<u8> = bincode::serialize(data)?;
-	file.write_all(&encode)?;
-
-	Ok(())
-}
-
-// Load bytes only
-fn load_bytes(path: &String) -> std::io::Result<Vec<u8>> {
-	let pathbuf = get_data_path(path)?;
-	let mut file = std::fs::File::open(pathbuf)?;
-	let mut buf = vec![];
-	file.read_to_end(&mut buf)?;
-
-	Ok(buf)
-}
-
-// Save bytes only
-fn save_bytes(path: &String, data: &[u8]) -> std::io::Result<()> {
-	let pathbuf = get_data_path(path)?;
-	let mut file = std::fs::File::create(pathbuf)?;
-	file.write_all(data)?;
-	Ok(())
-}
-
-/// Load data at path or run function
-fn load_or_generate<T, F>(path: &String, generator: F) -> T
-where
-	for<'a> T: serde::Serialize + serde::Deserialize<'a>,
-	F: FnOnce() -> T,
-{
-	match load_data(path) {
-		Ok(res) => res,
-		Err(_) => {
-			let t = generator();
-			if let Err(e) = save_data(path, &t) {
-				eprintln!("Could not save data to {}: {}", path, e);
-			}
-			t
-		}
-	}
-}
-
-// =====
-// Specific table loading functions
-// All of the either load or generate the specified table, depending
-// whether it can be loaded or not.
-//
-// More about the used coordinates: https://kociemba.org/math/twophase.htm
-// =====
-
-fn get_corner_ori_movetable(turns: &Vec<Turn>) -> Movetable {
-	let data_path = format!("corner_ori-movetable-{:x}.dat", hash_turns(turns));
-	let gen = || {
-		create_movetable(
-			CORNER_ORI,
-			turns,
-			get_corner_ori_coord,
-			cube_from_corner_ori,
-		)
-	};
-	load_or_generate(&data_path, gen)
-}
-
-fn get_edge_ori_movetable(turns: &Vec<Turn>) -> Movetable {
-	let data_path = format!("edge_ori-movetable-{:x}.dat", hash_turns(turns));
-	let gen = || create_movetable(EDGE_ORI, turns, get_edge_ori_coord, cube_from_edge_ori);
-	load_or_generate(&data_path, gen)
-}
-
-fn get_slice_sorted_movetable(turns: &Vec<Turn>) -> Movetable {
-	let data_path = format!("slice_sorted-movetable-{:x}.dat", hash_turns(turns));
-	let gen = || {
-		create_movetable(
-			SLICE_SORTED,
-			turns,
-			get_udslice_sorted_coord,
-			cube_from_udslice_sorted,
-		)
-	};
-	load_or_generate(&data_path, gen)
-}
-
-fn get_corner_perm_movetable(turns: &Vec<Turn>) -> Movetable {
-	let data_path = format!("corner_perm-movetable-{:x}.dat", hash_turns(turns));
-	let gen = || {
-		create_movetable(
-			CORNER_PERM,
-			turns,
-			get_corner_perm_coord,
-			cube_from_corner_perm,
-		)
-	};
-	load_or_generate(&data_path, gen)
-}
-
-fn get_edge8_perm_movetable(turns: &Vec<Turn>) -> Movetable {
-	let data_path = format!("edge8_perm-movetable-{:x}.dat", hash_turns(turns));
-	let gen = || create_movetable(EDGE8_PERM, turns, get_edge8_perm, cube_from_edge_perm);
-	load_or_generate(&data_path, gen)
-}
-
-fn get_udslice_perm_movetable(turns: &Vec<Turn>) -> Movetable {
-	let data_path = format!("udslice_perm-movetable-{:x}.dat", hash_turns(turns));
-	let gen = || {
-		create_movetable(
-			24, // = 4!
-			turns,
-			get_udslice_sorted_coord,
-			cube_from_udslice_sorted,
-		)
-	};
-	load_or_generate(&data_path, gen)
-}
-
-// ===== Symtables =====
-
-fn get_corner_ori_symtable() -> Symtable {
-	let data_path = String::from("corner_ori-symtable.dat");
-	let gen = || create_symtable(CORNER_ORI, 16, get_corner_ori_coord, cube_from_corner_ori);
-	load_or_generate(&data_path, gen)
-}
-
-fn get_edge8_perm_symtable() -> Symtable {
-	let data_path = String::from("edge8_perm-symtable.dat");
-	let gen = || create_symtable(EDGE8_PERM, 16, get_edge8_perm, cube_from_edge_perm);
-	load_or_generate(&data_path, gen)
-}
-
-// ===== Heuristics =====
-
-fn get_phase1_heuristics(turns: Vec<Turn>) -> Heuristics {
-	let data_path = format!("phase1-heuristics-{:x}.dat", hash_turns(&turns));
-
-	match load_bytes(&data_path) {
-		Ok(data) => Heuristics { data },
-		Err(_) => {
-			let toraw = create_symtoraw(
-				FLIP_UDSLICE,
-				SYM_FLIP_UDSLICE,
-				get_flip_udslice_coord,
-				cube_from_flip_udslice,
-			);
-
-			let symstate = gen_symstate(&toraw, get_flip_udslice_coord, cube_from_flip_udslice);
-
-			let stable = create_sym_movetable(
-				&toraw,
-				&turns,
-				get_flip_udslice_coord,
-				cube_from_flip_udslice,
-			);
-
-			let ctable = get_corner_ori_movetable(&turns);
-			let symtable = get_corner_ori_symtable();
-
-			let h = gen_heuristics(ctable, stable, symtable, symstate);
-
-			match save_bytes(&data_path, &h.data) {
-				Ok(_) => {}
-				Err(e) => eprintln!("Could not save {}: {}", data_path, e),
-			}
-
-			h
-		}
-	}
-}
-
-fn get_phase2_heuristics(turns: Vec<Turn>) -> Heuristics {
-	let data_path = format!("phase2-heuristics-{:x}.dat", hash_turns(&turns));
-
-	match load_bytes(&data_path) {
-		Ok(data) => Heuristics { data },
-		Err(_) => {
-			println!("Generating {}, this may take a while...", &data_path);
-			let toraw = create_symtoraw(
-				CORNER_PERM,
-				SYM_CORNER_PERM,
-				get_corner_perm_coord,
-				cube_from_corner_perm,
-			);
-
-			let symstate = gen_symstate(&toraw, get_corner_perm_coord, cube_from_corner_perm);
-
-			let stable =
-				create_sym_movetable(&toraw, &turns, get_corner_perm_coord, cube_from_corner_perm);
-
-			let ctable = get_edge8_perm_movetable(&turns);
-			let symtable = get_edge8_perm_symtable();
-
-			let h = gen_heuristics(ctable, stable, symtable, symstate);
-
-			match save_bytes(&data_path, &h.data) {
-				Ok(_) => {}
-				Err(e) => eprintln!("Could not save to {}: {}", data_path, e),
-			}
-
-			h
-		}
-	}
-}
-
 // ===== Slices into edge8_perm table =====
 // This table is used to create the phase 2 coordinate
 // from the helper coordinates in phase 1
 
 fn get_into_edge8perm() -> Vec<Vec<u16>> {
-	let data_path = String::from("into_edge8perm.dat");
+	(0..SLICE_SORTED)
+		.into_par_iter()
+		.map(|idx| {
+			let mut cube = cube_from_fbslice_sorted(idx);
 
-	let gen = || {
-		(0..SLICE_SORTED)
-			.into_par_iter()
-			.map(|idx| {
-				let mut cube = cube_from_fbslice_sorted(idx);
+			// Check if the udslice only contains edges from the udslice
+			if UDSLICE_EDGES
+				.iter()
+				.any(|e| !UDSLICE_EDGES.contains(&cube.edges[*e as usize].0))
+			{
+				return vec![u16::MAX; 24];
+			}
 
-				// Check if the udslice only contains edges from the udslice
-				if UDSLICE_EDGES
-					.iter()
-					.any(|e| !UDSLICE_EDGES.contains(&cube.edges[*e as usize].0))
-				{
-					return vec![u16::MAX; 24];
-				}
+			// Get the indices where the RL-slice edges are
+			let indices: Vec<_> = cube
+				.edges
+				.iter()
+				.take(8)
+				.enumerate()
+				.filter(|(_, (e, _))| RLSLICE_EDGES.contains(e))
+				.map(|(i, _)| i)
+				.collect();
 
-				// Get the indices where the RL-slice edges are
-				let indices: Vec<_> = cube
-					.edges
-					.iter()
-					.take(8)
-					.enumerate()
-					.filter(|(_, (e, _))| RLSLICE_EDGES.contains(e))
-					.map(|(i, _)| i)
-					.collect();
+			// For each permutation, apply a rlslice order
+			(0..24)
+				.map(|j| {
+					let rlslice_edges = permute_vec(RLSLICE_EDGES.to_vec(), j);
 
-				// For each permutation, apply them to RLSLICE
-				(0..24)
-					.map(|j| {
-						let rlslice_edges = permute_vec(RLSLICE_EDGES.to_vec(), j);
+					// Permute the RLSLICE indices
+					for (i, ele) in indices.iter().enumerate() {
+						cube.edges[*ele].0 = rlslice_edges[i];
+					}
 
-						// Permute the RLSLICE indices
-						for (i, ele) in indices.iter().enumerate() {
-							cube.edges[*ele].0 = rlslice_edges[i];
-						}
-
-						cube.get_edge_permutation_coord() as u16
-					})
-					.collect()
-			})
-			.collect()
-	};
-
-	load_or_generate(&data_path, gen)
+					cube.get_edge_permutation_coord() as u16
+				})
+				.collect()
+		})
+		.collect()
 }
-
-// ===== Rawtosym table =====
-
-fn get_flip_udslice_rawtosym() -> RawToSymTable {
-	let data_path = String::from("flip_udslice-rawtosym.dat");
-	let gen = || create_rawtosym(FLIP_UDSLICE, get_flip_udslice_coord, cube_from_flip_udslice);
-	load_or_generate(&data_path, gen)
-}
-
-fn get_corner_perm_rawtosym() -> RawToSymTable {
-	let data_path = String::from("corner_perm-rawtosym.dat");
-	let gen = || create_rawtosym(CORNER_PERM, get_corner_perm_coord, cube_from_corner_perm);
-	load_or_generate(&data_path, gen)
-}
-
-// ===== Public functions =====
 
 /// Solve the given cube using Kociembas Two Phase Algorithm
 ///
 /// advanced_turns: Specify whether to use the advanced turnset (M, E, S...)
 pub fn solve(initial: ArrayCube, advanced_turns: bool) -> Option<Vec<Turn>> {
 	let cube: CubieCube = initial.clone().try_into().unwrap();
-	let mut solver = Solver::new(advanced_turns);
+
+	let path = format!("data/kociemba_{}.dat", advanced_turns);
+	let data = match KociembaData::load(&path) {
+		Ok(data) => data,
+		Err(_) => {
+			println!("Must generate heuristics, this may take a while...");
+			let data = KociembaData::generate(advanced_turns);
+			match data.save(&path) {
+				Ok(()) => println!("Saved data to {}", path),
+				Err(e) => eprintln!("Could not save data: {}", e),
+			}
+			data
+		}
+	};
+
+	let mut solver = Solver::new(data);
+
 	let out = solver.solve(cube);
 
 	#[cfg(debug_assertions)]

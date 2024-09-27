@@ -1,4 +1,3 @@
-use std::error::Error;
 use std::str::FromStr;
 
 use pancurses::*;
@@ -96,10 +95,10 @@ fn init(win: &Window, cube: &[u8]) {
 	win.printw("Press (shift+)Q to quit, if the cube is solvable.");
 }
 
-fn get_solvability(data: &[u8]) -> Result<(), Box<dyn Error>> {
-	let arraycube = get_cube(data)?;
-	let cubie: cubiecube::CubieCube = arraycube.try_into()?;
-	cubie.check_solvability()?;
+fn get_solvability(data: &[u8]) -> Result<(), String> {
+	let arraycube = get_cube(data).map_err(|e| e.to_string())?;
+	let cubie: cubiecube::CubieCube = arraycube.try_into().map_err(|e: CubeError| e.to_string())?;
+	cubie.check_solvability().map_err(|e| e.to_string())?;
 	Ok(())
 }
 
@@ -116,7 +115,7 @@ fn update_solvability_message(win: &Window, data: &[u8]) {
 		}
 		Err(e) => {
 			win.attron(COLOR_PAIR(5));
-			win.printw(e.to_string());
+			win.printw(e);
 		}
 	}
 }

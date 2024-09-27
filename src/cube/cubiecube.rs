@@ -378,9 +378,9 @@ pub fn get_symmetry_inv(cube: &CubieCube, sym: usize) -> CubieCube {
 
 // ==========
 
-/// The number of different orientation configuration of corners
+/// The number of different (legal) orientation configuration of corners
 pub const CORNER_ORI: usize = 2187; // 3^7
-/// The number of different orientation configuration of edges
+/// The number of different (legal) orientation configuration of edges
 pub const EDGE_ORI: usize = 2048; // 2^11
 
 /// The number of permutations the corners can form
@@ -420,8 +420,7 @@ impl CubieCube {
 		let inv2 = count_permutation_inversions(eperm);
 
 		if (inv + inv2) % 2 == 1 {
-			// It can be proven that the sum over all factoradic digits
-			// are the total number of inversions.
+			// The sum over all factoradic digits is the total number of inversions.
 			// Using the factoradic number system, we can simply change
 			// the second digit by one, which is determined by the first bit.
 			eperm ^= 1;
@@ -525,21 +524,6 @@ impl CubieCube {
 		x
 	}
 
-	/// Return the cube's udslice position coordinate
-	/// That's the coordinate which tells us the position of the UD-Slice (FR, BR, BL, FL)
-	pub fn get_udslice_coord(&self) -> usize {
-		// https://kociemba.org/math/UDSliceCoord.htm
-		const UDSLICE: [Edge; 4] = [Edge::FR, Edge::BR, Edge::BL, Edge::FL];
-		let chosen: Vec<_> = Edge::iter()
-			.map(|pos| {
-				let (e, _) = self.edge_at(pos);
-				UDSLICE.contains(&e)
-			})
-			.collect();
-
-		map_nck(&chosen)
-	}
-
 	/// Return the cube's corner permutation as a coordinate.
 	pub fn get_corner_perm_coord(&self) -> usize {
 		let perm: Vec<_> = self.corners.iter().map(|(c, _)| *c as usize).collect();
@@ -549,17 +533,6 @@ impl CubieCube {
 	/// Return the cube's edge permutation as a coordinate
 	pub fn get_edge_permutation_coord(&self) -> usize {
 		let perm: Vec<_> = self.edges.iter().map(|(e, _)| *e as usize).collect();
-		map_permutation(&perm)
-	}
-
-	/// Return the cube's coordinate of the non-udslice edges permutation.
-	pub fn get_edge8_permutation_coord(&self) -> usize {
-		let perm: Vec<_> = self
-			.edges
-			.iter()
-			.take(8)
-			.map(|(e, _)| *e as usize)
-			.collect();
 		map_permutation(&perm)
 	}
 
