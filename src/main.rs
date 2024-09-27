@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use std::{error::Error, str::FromStr};
 
 use clap::Parser;
 use cubiecube::CubieCube;
@@ -76,7 +76,7 @@ struct Args {
 	advanced_turns: bool,
 }
 
-fn main() -> std::io::Result<()> {
+fn main() -> Result<(), Box<dyn Error>> {
 	#[cfg(debug_assertions)]
 	std::env::set_var("RUST_BACKTRACE", "1");
 
@@ -108,8 +108,10 @@ fn main() -> std::io::Result<()> {
 			ArrayCube::from_str(args.set.as_str()).expect("Given cube string couldn't be parsed");
 	}
 
-	// Applies turns from args
-	cube.apply_turns(parse_turns(args.sequence).expect("Given input sequence could not be parsed"));
+	match parse_turns(args.sequence) {
+		Ok(seq) => cube.apply_turns(seq),
+		Err(e) => return Err(e.into()),
+	}
 
 	#[cfg(feature = "interactive")]
 	if args.interactive {
@@ -118,7 +120,7 @@ fn main() -> std::io::Result<()> {
 		// Parse cube given from the interactive mode
 		cube = match ArrayCube::from_str(&res) {
 			Ok(res) => res,
-			Err(e) => panic!("Given cube has invalid properties: {}", e),
+			Err(e) => return Err(e.into()),
 		}
 	}
 
@@ -126,10 +128,10 @@ fn main() -> std::io::Result<()> {
 	if args.solve {
 		let cubie: CubieCube = match cube.clone().try_into() {
 			Ok(c) => c,
-			Err(e) => panic!("The given cube is not solvable: {}", e),
+			Err(e) => return Err(e.into()),
 		};
 		if let Err(e) = cubie.check_solvability() {
-			panic!("The given cube is not solvable: {}", e);
+			return Err(format!("Unsolvable cube: {}", e).into());
 		}
 
 		// Choose algorithm to use
@@ -152,7 +154,7 @@ fn main() -> std::io::Result<()> {
 				return Ok(());
 			}
 			None => {
-				panic!("Could not solve given Rubik's Cube!");
+				return Err("Could not solve the given Rubik's Cube!".into());
 			}
 		}
 	}

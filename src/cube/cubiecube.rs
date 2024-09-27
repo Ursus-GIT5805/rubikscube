@@ -408,11 +408,11 @@ impl CubieCube {
 		let mut cubie = CubieCube::new();
 
 		// Generate a cubie by setting random coordinates
-		cubie.set_edge_orientation(rng.gen::<usize>() % EDGE_ORI);
-		cubie.set_corner_orientation(rng.gen::<usize>() % CORNER_ORI);
+		cubie.set_edge_orientation(rng.gen_range(0..EDGE_ORI));
+		cubie.set_corner_orientation(rng.gen_range(0..CORNER_ORI));
 
-		let cperm = rng.gen::<usize>() % CORNER_PERM;
-		let mut eperm = rng.gen::<usize>() % EDGE_PERM;
+		let cperm = rng.gen_range(0..CORNER_PERM);
+		let mut eperm = rng.gen_range(0..EDGE_PERM);
 
 		// The number of swaps have to be even
 		// Which is equivalent to: The number of inversions has to be even.
