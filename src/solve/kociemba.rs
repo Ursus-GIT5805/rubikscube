@@ -5,7 +5,6 @@
  * But it has a lot of changes and simplfications.
  */
 
-use std::error::Error;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::io::{Read, Write};
 use std::path::PathBuf;
@@ -37,8 +36,6 @@ type RawToSymTable = Vec<(u16, u8)>;
 
 /// A state which contains all i where S[i] * A S[i]^-1 = A
 type SymState = Vec<u32>;
-
-type GenericResult<T> = std::result::Result<T, Box<dyn Error>>;
 
 const RLSLICE_EDGES: [Edge; 4] = [Edge::UF, Edge::DF, Edge::DB, Edge::UB];
 const FBSLICE_EDGES: [Edge; 4] = [Edge::UR, Edge::DR, Edge::DL, Edge::UL];
@@ -917,7 +914,7 @@ fn get_data_path(filename: &String) -> std::io::Result<PathBuf> {
 	Ok(pathbuf)
 }
 
-fn load_data<T>(path: &String) -> GenericResult<T>
+fn load_data<T>(path: &String) -> std::io::Result<T>
 where
 	for<'a> T: serde::Deserialize<'a>,
 {
@@ -925,18 +922,28 @@ where
 	let mut file = std::fs::File::open(pathbuf)?;
 	let mut buf = vec![];
 	file.read_to_end(&mut buf)?;
-	let decoded: T = bincode::deserialize(&buf)?;
+	let decoded: T = bincode::deserialize(&buf).map_err(|e| {
+		std::io::Error::new(
+			std::io::ErrorKind::InvalidData,
+			format!("Could not deserialize: {}", e),
+		)
+	})?;
 
 	Ok(decoded)
 }
 
-fn save_data<T>(path: &String, data: &T) -> GenericResult<()>
+fn save_data<T>(path: &String, data: &T) -> std::io::Result<()>
 where
 	T: serde::Serialize,
 {
 	let pathbuf = get_data_path(path)?;
 	let mut file = std::fs::File::create(pathbuf)?;
-	let encode: Vec<u8> = bincode::serialize(data)?;
+	let encode: Vec<u8> = bincode::serialize(data).map_err(|e| {
+		std::io::Error::new(
+			std::io::ErrorKind::InvalidInput,
+			format!("Could not serialize: {}", e),
+		)
+	})?;
 	file.write_all(&encode)?;
 
 	Ok(())
