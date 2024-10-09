@@ -1,3 +1,11 @@
+/*
+ * This is the Thistlewaite algorithm, see more at:
+ * https://www.jaapsch.net/puzzles/thistle.htm
+ *
+ * This algorithm is currently very slow, use Kociemba's
+ * algorithm for faster results
+*/
+
 use crate::cube::{arraycube::ArrayCube, turn::*, *};
 use std::collections::{HashMap, VecDeque};
 use strum::*;
@@ -17,7 +25,7 @@ impl TurnSet {
 
 	/// Helper function to create the index from a turn
 	fn hash(turn: Turn) -> usize {
-		(turn.side as usize) * NUM_TURNWISES + turn.wise as usize
+		(turn.typ as usize) * NUM_TURNWISES + turn.wise as usize
 	}
 
 	/// Remove the given turn. Does nothing if the turn isn't in the set
@@ -54,7 +62,7 @@ fn bfs_solve(
 	queue.push_front((
 		initial.clone(),
 		Turn {
-			side: TurnType::U,
+			typ: TurnType::U,
 			wise: TurnWise::Clockwise,
 		},
 	));
@@ -102,7 +110,7 @@ fn bfs_solve(
 
 		for side in TurnType::iter() {
 			for wise in TurnWise::iter() {
-				let turn = Turn { side, wise };
+				let turn = Turn { typ: side, wise };
 				if !turns.has_turn(turn) {
 					continue;
 				} // illegal turn
@@ -234,7 +242,7 @@ fn post_solve_optimization(turns: std::vec::Vec<Turn>) -> std::vec::Vec<Turn> {
 	for turn in turns {
 		if let Some(t) = out.last() {
 			// If 2 following turns turn the same side, combine it into one single turn
-			if t.side == turn.side {
+			if t.typ == turn.typ {
 				let new = (t.wise as usize + turn.wise as usize + 2) % (NUM_TURNWISES + 1);
 				let idx = out.len() - 1;
 				match new {

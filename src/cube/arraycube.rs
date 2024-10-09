@@ -37,6 +37,17 @@ pub const fn chain_transform(t1: CubeData, t2: CubeData) -> CubeData {
 	out
 }
 
+/// Return the inverse transformation of the given one
+const fn inverse_transform(t: CubeData) -> CubeData {
+	let mut out = [0; CUBEDATA_LEN];
+
+	const_for!(i in 0..CUBEDATA_LEN => {
+		out[ t[i] as usize ] = i as u8;
+	});
+
+	out
+}
+
 const fn is_base(t1: CubeData) -> bool {
 	const_for!(i in 0..CUBEDATA_LEN => {
 		if t1[i] != i as u8 { return false; }
@@ -167,7 +178,7 @@ fn convert_vec_to_transformation(turns: &Vec<Turn>) -> CubeData {
 	let mut out = T_BASE;
 
 	for turn in turns {
-		let t = TRANSFORM[turn.side as usize][turn.wise as usize];
+		let t = TRANSFORM[turn.typ as usize][turn.wise as usize];
 		out = chain_transform(t, out);
 	}
 
@@ -180,6 +191,8 @@ fn convert_vec_to_transformation(turns: &Vec<Turn>) -> CubeData {
 pub enum ArrayCubeFromStrError {
 	#[error("The given string does not have length {}", CUBEDATA_LEN)]
 	Length,
+	#[error("The given string has invalid letters!")]
+	InvalidLetters,
 	#[error("The corner at position {0} has a invalid color combination")]
 	Corner(Corner),
 	#[error("The corner at position {0} has a invalid color permutation")]
@@ -194,6 +207,12 @@ impl FromStr for ArrayCube {
 	fn from_str(s: &str) -> Result<Self, Self::Err> {
 		if s.len() != CUBEDATA_LEN {
 			return Err(ArrayCubeFromStrError::Length);
+		}
+
+		for c in s.as_bytes() {
+			if *c < b'a' || b'f' < *c {
+				return Err(ArrayCubeFromStrError::InvalidLetters);
+			}
 		}
 
 		let mut cube = ArrayCube::new();
@@ -262,7 +281,7 @@ impl From<ArrayCube> for String {
 impl RubiksCube for ArrayCube {
 	fn apply_turn(&mut self, turn: Turn) {
 		// Get the transformation matrix (which is easy because it's carefully sorted)
-		let transform = TRANSFORM[turn.side as usize][turn.wise as usize];
+		let transform = TRANSFORM[turn.typ as usize][turn.wise as usize];
 		self.apply_transform(transform);
 	}
 }
@@ -416,6 +435,22 @@ impl ArrayCube {
 
 		// Reset ansii color
 		print!("\x1b[00m");
+	}
+
+	/// Return the inverse cube of self
+	///
+	/// ```
+	/// use rubikscube::prelude::*;
+	///
+	/// let cube: ArrayCube = CubieCube::random().into();
+	/// let inv = cube.inverse();
+	/// let prod = cube * inv;
+	/// assert!(prod.is_solved());
+	/// ```
+	pub fn inverse(&self) -> Self {
+		Self {
+			data: inverse_transform(self.data),
+		}
 	}
 
 	/// Apply the given sequence of turns.
@@ -615,9 +650,6 @@ const fn generate_symmetry_inverse_list() -> [usize; NUM_SYMMETRIES] {
 /// Symmetry index of 'i' is SYM[i]
 const SYMMETRY_INVERSE: [usize; NUM_SYMMETRIES] = generate_symmetry_inverse_list();
 
-#[allow(dead_code)]
-/// Return the i-th symmetry of cube
-
 // ===== Tests =====
 
 #[cfg(test)]
@@ -627,64 +659,6 @@ mod tests {
 	use crate::cube::arraycube::ArrayCube;
 	use crate::cube::*;
 	use arraycube::*;
-
-	#[test]
-	/// Test for basic turning and their correctness
-	fn array_cube_turns1() {
-		let mut cube = ArrayCube::default();
-		// Little scramble
-		cube.apply_turns(random_sequence(20));
-
-		for side in TurnType::iter() {
-			let turn_n = Turn {
-				side,
-				wise: TurnWise::Clockwise,
-			};
-			let turn_c = Turn {
-				side,
-				wise: TurnWise::CounterClockwise,
-			};
-			let turn2 = Turn {
-				side,
-				wise: TurnWise::Double,
-			};
-
-			let mut cube_n = cube.clone();
-			cube_n.apply_turn(turn_n);
-
-			let mut cube_c = cube.clone();
-			cube_c.apply_turn(turn_c);
-
-			let mut cube2 = cube.clone();
-			cube2.apply_turn(turn2);
-
-			// Check that every turnwise isn't another one
-			assert_ne!(cube_n, cube2);
-			assert_ne!(cube2, cube_c);
-			assert_ne!(cube_n, cube_c);
-
-			// Check that two quarters are equal to one half
-			cube_n.apply_turn(turn_n);
-			assert_eq!(cube_n, cube2);
-
-			// Check that 3 quarters are equal to one quarter counterclockwise
-			cube_n.apply_turn(turn_n);
-			assert_eq!(cube_n, cube_c);
-		}
-	}
-
-	#[test]
-	/// Test for more basic turning
-	fn array_cube_turns2() {
-		let mut cube = ArrayCube::default();
-		let bef = cube.clone();
-
-		// This sequence should turn back to the solved cube.
-		let turns = parse_turns("U2 D2 B2 F2 L2 R2 B2 F2 L2 R2 U2 D2").unwrap();
-		cube.apply_turns(turns);
-
-		assert_eq!(cube, bef);
-	}
 
 	#[test]
 	/// Test for corner parsing

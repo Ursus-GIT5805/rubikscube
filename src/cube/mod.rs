@@ -17,7 +17,6 @@ pub const NUM_SIDES: usize = 6;
 /// The number of symmetries
 pub const NUM_SYMMETRIES: usize = 48;
 
-// TODO: Change this to an enum
 #[derive(Eq, PartialEq, PartialOrd, Copy, Clone, strum::EnumCount, strum::FromRepr)]
 #[repr(u8)]
 pub enum Side {

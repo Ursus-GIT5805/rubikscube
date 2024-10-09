@@ -59,6 +59,10 @@ const TC_RIGHT: CornerList = [
 ];
 
 /// Chain two corner transformations together
+///
+/// Transformation is defined as follows:
+/// - (a*b)[i].c = a[b[i].c].c
+/// - (a*b)[i].o = (a[b[i].c].o + b[i].o) % 3
 const fn chain_corners(t1: CornerList, t2: CornerList) -> CornerList {
 	let mut out = TC_BASE;
 
@@ -174,6 +178,10 @@ const TE_RIGHT: EdgeList = [
 ];
 
 /// Chain two edge transformations together
+///
+/// Transformation is defined as follows:
+/// - (a*b)[i].c = a[b[i].c].c
+/// - (a*b)[i].o = (a[b[i].c].o + b[i].o) % 2
 const fn chain_edges(t1: EdgeList, t2: EdgeList) -> EdgeList {
 	let mut out = TE_BASE;
 
@@ -392,7 +400,7 @@ impl CubieCube {
 		let cperm = rng.gen_range(0..CORNER_PERM);
 		let mut eperm = rng.gen_range(0..EDGE_PERM);
 
-		// The number of swaps have to be even
+		// The number of swaps needed to solve the cube is even.
 		// Which is equivalent to: The number of inversions has to be even.
 		let inv = count_permutation_inversions(cperm);
 		let inv2 = count_permutation_inversions(eperm);
@@ -612,8 +620,8 @@ impl CubieCube {
 
 impl RubiksCube for CubieCube {
 	fn apply_turn(&mut self, turn: Turn) {
-		let tc = CORNER_TRANSFORM[turn.side as usize][turn.wise as usize];
-		let te = EDGE_TRANSFORM[turn.side as usize][turn.wise as usize];
+		let tc = CORNER_TRANSFORM[turn.typ as usize][turn.wise as usize];
+		let te = EDGE_TRANSFORM[turn.typ as usize][turn.wise as usize];
 		self.apply_transformation(tc, te);
 	}
 }

@@ -2,8 +2,7 @@
 * This algorithm is the algorithm Herbert Kociemba published on
 * <https://kociemba.org/cube.htm>
 *
-* But it has a lot of changes and simplfications.
-
+* It has some changes and generalisations though.
 */
 
 use serde::{Deserialize, Serialize};
@@ -440,8 +439,8 @@ impl KociembaData {
 		}
 	}
 
-	pub fn load(path: &String) -> std::io::Result<Self> {
-		let mut file = std::fs::File::open(path)?;
+	pub fn load(path: impl Into<String>) -> std::io::Result<Self> {
+		let mut file = std::fs::File::open(path.into())?;
 		let mut buf = vec![];
 		file.read_to_end(&mut buf)?;
 		let decoded: Self = bincode::deserialize(&buf).map_err(|e| {
@@ -453,8 +452,8 @@ impl KociembaData {
 		Ok(decoded)
 	}
 
-	pub fn save(&self, path: &String) -> std::io::Result<()> {
-		let mut file = std::fs::File::create(path)?;
+	pub fn save(&self, path: impl Into<String>) -> std::io::Result<()> {
+		let mut file = std::fs::File::create(path.into())?;
 		let encode: Vec<u8> = bincode::serialize(&self).map_err(|e| {
 			std::io::Error::new(
 				std::io::ErrorKind::InvalidInput,

@@ -5,8 +5,7 @@ use strum::{EnumCount, IntoEnumIterator};
 use std::iter::Iterator;
 use std::str::FromStr;
 
-/// Total number of ways to adjust your turn
-pub const NUM_TURNWISES: usize = 3;
+use super::Side;
 
 /// The sides or slices you can turn in a cube
 #[derive(
@@ -45,15 +44,44 @@ pub enum TurnType {
 /// Total number of turntypes
 pub const NUM_TURNTYPES: usize = TurnType::COUNT;
 
+impl TurnType {
+	/// Returns the side it is turning or None if it not exactly one side.
+	pub fn get_side(&self) -> Option<Side> {
+		let side = match self {
+			TurnType::U => Side::Up,
+			TurnType::D => Side::Down,
+			TurnType::B => Side::Back,
+			TurnType::F => Side::Front,
+			TurnType::L => Side::Left,
+			TurnType::R => Side::Right,
+			_ => return None,
+		};
+
+		Some(side)
+	}
+}
+
 /// You can either turn a side in (Counter-)Clockwise and Half turns, that's the wise of a turn.
 #[derive(
-	Clone, Copy, PartialEq, Eq, Hash, strum::EnumIter, std::fmt::Debug, Serialize, Deserialize,
+	Clone,
+	Copy,
+	PartialEq,
+	Eq,
+	Hash,
+	std::fmt::Debug,
+	Serialize,
+	Deserialize,
+	strum::EnumIter,
+	strum::EnumCount,
 )]
 pub enum TurnWise {
 	Clockwise,
 	Double,
 	CounterClockwise,
 }
+
+/// Total number of ways to adjust your turn
+pub const NUM_TURNWISES: usize = TurnWise::COUNT;
 
 impl std::fmt::Display for TurnWise {
 	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
@@ -65,15 +93,25 @@ impl std::fmt::Display for TurnWise {
 	}
 }
 
+impl TurnWise {
+	pub fn inverse(&self) -> Self {
+		match self {
+			TurnWise::Clockwise => TurnWise::CounterClockwise,
+			TurnWise::Double => TurnWise::Double,
+			TurnWise::CounterClockwise => TurnWise::Clockwise,
+		}
+	}
+}
+
 // ===== Turn struct =====
 
 /// An entire turn
 ///
-/// side: The side/slice or similar to turn
+/// name: The annotation for the turn
 /// wise: See the definiton of TurnWise
 #[derive(Clone, Copy, PartialEq, Eq, Hash, std::fmt::Debug, Serialize, Deserialize)]
 pub struct Turn {
-	pub side: TurnType,
+	pub typ: TurnType,
 	pub wise: TurnWise,
 }
 
@@ -87,11 +125,18 @@ impl Turn {
 			_ => {}
 		}
 	}
+
+	pub fn inverse(&self) -> Self {
+		Self {
+			typ: self.typ,
+			wise: self.wise.inverse(),
+		}
+	}
 }
 
 impl std::fmt::Display for Turn {
 	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-		self.side.fmt(f)?;
+		self.typ.fmt(f)?;
 		self.wise.fmt(f)
 	}
 }
@@ -129,16 +174,50 @@ impl FromStr for Turn {
 			}
 		};
 
-		Ok(Self { side, wise })
+		Ok(Self { typ: side, wise })
 	}
 }
 
+/// Return two base turns which combines into the given advanced turn
+/// or return None if the given turn is not advanced.
+pub fn analyze_advanced_turn(turn: Turn) -> Option<(Turn, Turn)> {
+	let (s1, s2) = match turn.typ {
+		TurnType::M | TurnType::MC => (TurnType::R, TurnType::L),
+		TurnType::E | TurnType::EC => (TurnType::D, TurnType::U),
+		TurnType::S | TurnType::SC => (TurnType::B, TurnType::F),
+		_ => return None,
+	};
+
+	let w1 = turn.wise;
+	let w2 = match turn.typ {
+		TurnType::M | TurnType::E | TurnType::S => w1.inverse(),
+		_ => w1,
+	};
+
+	let t1 = Turn { typ: s1, wise: w1 };
+	let t2 = Turn { typ: s2, wise: w2 };
+
+	Some((t1, t2))
+}
+
 /// Parse a sequence of turns from a string
-pub fn parse_turns<T>(item: T) -> Result<Vec<Turn>, FromStrError>
-where
-	T: Into<String>,
-{
+pub fn parse_turns(item: impl Into<String>) -> Result<Vec<Turn>, FromStrError> {
 	item.into().split_whitespace().map(Turn::from_str).collect()
+}
+
+/// Reverse a sequence of turns
+/// ```
+/// use rubikscube::prelude::*;
+///
+/// let turns = random_sequence(20);
+/// let inv = reverse_turns(turns.clone());
+/// let mut cube = ArrayCube::new();
+/// cube.apply_turns(turns);
+/// cube.apply_turns(inv);
+/// assert!(cube.is_solved());
+/// ```
+pub fn reverse_turns(turns: Vec<Turn>) -> Vec<Turn> {
+	turns.into_iter().rev().map(|t| t.inverse()).collect()
 }
 
 /// Return a vector containg every possible turn
@@ -146,14 +225,13 @@ pub fn all_turns() -> Vec<Turn> {
 	let mut out = vec![];
 	for side in TurnType::iter() {
 		for wise in TurnWise::iter() {
-			out.push(Turn { side, wise });
+			out.push(Turn { typ: side, wise });
 		}
 	}
 	out
 }
 
 /// Return a random sequence of turns of with length n
-#[allow(unused)]
 pub fn random_sequence(n: usize) -> Vec<Turn> {
 	let sides: Vec<_> = TurnType::iter().collect();
 	let wises: Vec<_> = TurnWise::iter().collect();
@@ -161,10 +239,10 @@ pub fn random_sequence(n: usize) -> Vec<Turn> {
 
 	(0..n)
 		.map(|_| {
-			let side = sides[rng.gen::<usize>() % sides.len()];
-			let wise = wises[rng.gen::<usize>() % wises.len()];
+			let side = sides[rng.gen_range(0..NUM_TURNTYPES)];
+			let wise = wises[rng.gen_range(0..NUM_TURNWISES)];
 
-			Turn { side, wise }
+			Turn { typ: side, wise }
 		})
 		.collect()
 }
