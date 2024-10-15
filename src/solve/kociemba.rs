@@ -41,6 +41,7 @@ type RawToSymTable = Vec<(u16, u8)>;
 /// A state which contains all i where S[i] * A S[i]^-1 = A
 type SymState = Vec<u32>;
 
+// Slices
 const RLSLICE_EDGES: [Edge; 4] = [Edge::UF, Edge::DF, Edge::DB, Edge::UB];
 const FBSLICE_EDGES: [Edge; 4] = [Edge::UR, Edge::DR, Edge::DL, Edge::UL];
 const UDSLICE_EDGES: [Edge; 4] = [Edge::FR, Edge::BR, Edge::BL, Edge::FL];
@@ -68,6 +69,7 @@ struct Heuristics {
 }
 
 impl Heuristics {
+	/// Get the entry at index 'i'
 	pub fn get(&self, i: usize) -> Option<u8> {
 		let x = self.data.get(i >> 2)?;
 		let offset = (i & 0b11) << 1;
@@ -98,6 +100,7 @@ impl From<Vec<u8>> for Heuristics {
 
 // =====
 
+/// Coordinates used for phase 1
 #[derive(Clone, Debug)]
 struct CoordPhase1 {
 	// Coordinates
@@ -132,6 +135,7 @@ impl CoordPhase1 {
 	}
 }
 
+/// Data used for phase 1
 #[derive(Serialize, Deserialize)]
 struct DataPhase1 {
 	turns: Vec<Turn>,
@@ -235,10 +239,12 @@ impl DataPhase1 {
 		}
 	}
 
+	/// Return whether phase 1 is solved
 	pub fn is_solved(&self, c: &CoordPhase1) -> bool {
 		c.corner_ori == 0 && c.edge_ori == 0 && c.udslice_sorted < 24
 	}
 
+	/// Apply a turn on thi given coordinate
 	pub fn apply_turn(&self, c: &mut CoordPhase1, i: usize) {
 		c.corner_ori = self.corner_ori_move[c.corner_ori][i] as usize;
 		c.edge_ori = self.edge_ori_move[c.edge_ori][i] as usize;
@@ -249,6 +255,8 @@ impl DataPhase1 {
 		c.rlslice_sorted = self.slice_move[c.rlslice_sorted][i] as usize;
 	}
 
+	/// Get all successors in order i.e. all neighbours of 'coord' ordered
+	/// from the least amount of turns to the most amounts of turns needed
 	pub fn succ(&self, coord: &CoordPhase1) -> Vec<(u8, usize)> {
 		let cur = self.heuristic_at(coord);
 
@@ -261,6 +269,7 @@ impl DataPhase1 {
 
 				// How many turns you would waste when choosing this path
 				// if (h+1) % 3 == cur, you waste no turn. (cur+1) % 3 == h wastes 2 turns.
+				// It's the same calculation in mod 3: h-cur+1
 				let w = (4 - cur + h) % 3;
 				(w, i)
 			})
@@ -391,6 +400,8 @@ impl DataPhase2 {
 		c.udslice_sorted = self.slice_move[c.udslice_sorted][i] as usize;
 	}
 
+	/// Get all successors in order i.e. all neighbours of 'coord' ordered
+	/// from the least amount of turns to the most amounts of turns needed
 	pub fn succ(&self, coord: &CoordPhase2) -> Vec<(u8, usize)> {
 		let cur = self.heuristic_at(coord);
 
@@ -420,6 +431,10 @@ pub struct KociembaData {
 }
 
 impl KociembaData {
+	/// Generate the Data used for the solver (~70MB)
+	///
+	/// This may take a while, it's recommended to use 'load' and 'save'
+	/// after generating the tables once.
 	pub fn generate(advanced_turns: bool) -> Self {
 		let turns_phase1 = if advanced_turns {
 			crate::cube::turn::all_turns()
@@ -439,6 +454,7 @@ impl KociembaData {
 		}
 	}
 
+	/// Load the data stored at 'path'
 	pub fn load(path: impl Into<String>) -> std::io::Result<Self> {
 		let mut file = std::fs::File::open(path.into())?;
 		let mut buf = vec![];
@@ -452,6 +468,7 @@ impl KociembaData {
 		Ok(decoded)
 	}
 
+	/// Save the data 'path'
 	pub fn save(&self, path: impl Into<String>) -> std::io::Result<()> {
 		let mut file = std::fs::File::create(path.into())?;
 		let encode: Vec<u8> = bincode::serialize(&self).map_err(|e| {
@@ -754,6 +771,14 @@ fn cube_from_edge_perm(coord: usize) -> CubieCube {
 
 // ===== Table Generating =====
 
+/// Create a movetable
+/// 'num_states': The range of the coordinate
+/// 'moves': The turns used for this table
+/// 'to_coord': Function to get the cube's coordinate
+/// 'from_coord': Function to retrieve a cube from the coordinate
+///
+/// Following must hold true to produce a meaningful output:
+/// to_coord(from_coord(idx)) = idx
 fn create_movetable(
 	num_states: usize,
 	moves: &Vec<Turn>,
